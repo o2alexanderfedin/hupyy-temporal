@@ -1,0 +1,38 @@
+{
+  "name": "flagship_interleaved_chains_offset_v1",
+  "time": "int",
+  "horizon_lo": 0,
+  "horizon_hi": 10000,
+  "events": [
+    {"id": "A1", "timeVar": "t_A1"},
+    {"id": "A2", "timeVar": "t_A2"},
+    {"id": "A3", "timeVar": "t_A3"},
+    {"id": "A4", "timeVar": "t_A4"},
+    {"id": "B1", "timeVar": "t_B1"},
+    {"id": "B2", "timeVar": "t_B2"},
+    {"id": "B3", "timeVar": "t_B3"},
+    {"id": "B4", "timeVar": "t_B4"}
+  ],
+  "constraints": [
+    {"relation": "before", "A": "t_A1", "B": "t_A2", "delta": 0},
+    {"relation": "before", "A": "t_A2", "B": "t_A3", "delta": 0},
+    {"relation": "before", "A": "t_A3", "B": "t_A4", "delta": 0},
+
+    {"relation": "before", "A": "t_B1", "B": "t_B2", "delta": 0},
+    {"relation": "before", "A": "t_B2", "B": "t_B3", "delta": 0},
+    {"relation": "before", "A": "t_B3", "B": "t_B4", "delta": 0},
+
+    {"relation": "before", "A": "t_A2", "B": "t_B2", "delta": 0},
+    {"relation": "before", "A": "t_A3", "B": "t_B3", "delta": 0},
+
+    { "relation": "geq", "A": "t_A1", "B": "t_B2", "delta": 45 }
+  ],
+  "query": { "type": "before", "A": "t_A3", "B": "t_B3" },
+  "narrative": [
+    "Project Alpha has milestones A1→A2→A3→A4 (in order).",
+    "Project Beta has milestones B1→B2→B3→B4 (in order).",
+    "A2 finishes before B2 begins; A3 finishes before B3 begins.",
+    "B2 cannot start until 45 minutes after A1 ends.",
+    "Question: Does A3 complete strictly before B3 starts?"
+  ]
+}

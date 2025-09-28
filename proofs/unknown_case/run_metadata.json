@@ -1,0 +1,12 @@
+{
+  "answer": "False",
+  "benchmark_file": "data/unknown_case.json",
+  "benchmark_sha256": "acee059b8f7fee1a3846d62b3020faee7bca4cafa4bce752aec82d7e27df22fa",
+  "cvc5_version": "This is cvc5 version 1.3.1 [git ea1b484 on branch HEAD]\ncompiled with GCC version Apple LLVM 15.0.0 (clang-1500.3.9.4)\non Sep 24 2025 18:51:55\n\nCopyright (c) 2009-2025 by the authors and their institutional\naffiliations listed at https://cvc5.github.io/people.html\n\ncvc5 is open-source and is covered by the BSD license (modified).\n\nTHIS SOFTWARE IS PROVIDED AS-IS, WITHOUT ANY WARRANTIES.\nUSE AT YOUR OWN RISK.\n\nThis version of cvc5 is linked against the following non-(L)GPL'ed\nthird party libraries.\n\n  CaDiCaL - Simplified Satisfiability Solver\n  See https://github.com/arminbiere/cadical for copyright information.\n\n  Editline Library\n  See https://thrysoee.dk/editline\n  for copyright information.\n\n  SymFPU - The Symbolic Floating Point Unit\n  See https://github.com/martin-cs/symfpu/tree/CVC4 for copyright information.\n\nThis version of cvc5 is linked against the following third party\nlibraries covered by the LGPLv3 license.\nSee licenses/lgpl-3.0.txt for more information.\n\n  GMP - Gnu Multi Precision Arithmetic Library\n  See http://gmplib.org for copyright information.\n\n  LibPoly polynomial library\n  See https://github.com/SRI-CSL/libpoly for copyright and\n  licensing information.\n\nSee the file COPYING (distributed with the source code, and with\nall binaries) for the full cvc5 copyright, licensing, and (lack of)\nwarranty information.\n",
+  "engine_commit": "fatal: not a git repository (or any of the parent directories): .git",
+  "proof_sha256": null,
+  "python": "3.9.6",
+  "solver_ms": null,
+  "timestamp": "2025-09-28T00:30:01+0300",
+  "wall_ms": 11
+}

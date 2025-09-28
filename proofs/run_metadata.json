@@ -1,0 +1,13 @@
+{
+  "timestamp": "2025-09-27T23:56:24.295348",
+  "query": {
+    "type": "before",
+    "A": "t_A3",
+    "B": "t_B3"
+  },
+  "result": "True",
+  "artifact_type": "smt_proof",
+  "constraint_count": 9,
+  "event_count": 8,
+  "solver": "cvc5"
+}

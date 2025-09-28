@@ -1,0 +1,11 @@
+[
+  {
+    "benchmark": "flagship_interleaved_chains_offset_v1",
+    "variant": "v1",
+    "model": "GPT-4o",
+    "prompt": "You will answer a temporal reasoning question. Answer Yes/No...\n[Paste narrative here]",
+    "answer": "No",
+    "rationale": "…",
+    "correct": false
+  }
+]
