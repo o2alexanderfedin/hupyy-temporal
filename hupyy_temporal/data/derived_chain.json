@@ -1,0 +1,24 @@
+{
+  "name": "derived_chain_strict_v1",
+  "time": "int",
+  "horizon_lo": 0,
+  "horizon_hi": 10000,
+  "events": [
+    {"id": "A₁", "timeVar": "t_A₁"},
+    {"id": "A₂", "timeVar": "t_A₂"},
+    {"id": "B₁", "timeVar": "t_B₁"},
+    {"id": "B₂", "timeVar": "t_B₂"}
+  ],
+  "constraints": [
+    { "relation": "before", "A": "t_A₁", "B": "t_A₂", "delta": 1 },
+    { "relation": "before", "A": "t_A₂", "B": "t_B₁", "delta": 1 },
+    { "relation": "before", "A": "t_B₁", "B": "t_B₂", "delta": 1 }
+  ],
+  "query": { "type": "before", "A": "t_A₁", "B": "t_B₂" },
+  "narrative": [
+    "Alpha has milestones A₁ then A₂ (in order).",
+    "Beta has milestones B₁ then B₂ (in order).",
+    "A₂ must finish before B₁ begins.",
+    "Question: Does A₁ complete strictly before B₂ starts?"
+  ]
+}

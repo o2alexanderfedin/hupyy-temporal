@@ -1,6 +1,6 @@
 # engine/encode.py
 from typing import List, Optional
-from engine.schemas import Problem, Query
+from .schemas import Problem, Query
 
 def _decls(problem: Problem, out: List[str]) -> None:
     out.append("; ---------- declarations ----------")

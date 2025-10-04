@@ -1,0 +1,35 @@
+{
+  "name": "interleaved_derived_v1",
+  "time": "int",
+  "horizon_lo": 0,
+  "horizon_hi": 10000,
+  "events": [
+    {"id": "A₁", "timeVar": "t_A₁"},
+    {"id": "A₂", "timeVar": "t_A₂"},
+    {"id": "A₃", "timeVar": "t_A₃"},
+    {"id": "A₄", "timeVar": "t_A₄"},
+    {"id": "B₁", "timeVar": "t_B₁"},
+    {"id": "B₂", "timeVar": "t_B₂"},
+    {"id": "B₃", "timeVar": "t_B₃"},
+    {"id": "B₄", "timeVar": "t_B₄"}
+  ],
+  "constraints": [
+    { "relation": "before", "A": "t_A₁", "B": "t_A₂", "delta": 1 },
+    { "relation": "before", "A": "t_A₂", "B": "t_A₃", "delta": 1 },
+    { "relation": "before", "A": "t_A₃", "B": "t_A₄", "delta": 1 },
+    { "relation": "before", "A": "t_B₁", "B": "t_B₂", "delta": 1 },
+    { "relation": "before", "A": "t_B₂", "B": "t_B₃", "delta": 1 },
+    { "relation": "before", "A": "t_B₃", "B": "t_B₄", "delta": 1 },
+
+    { "relation": "before", "A": "t_A₂", "B": "t_B₂", "delta": 1 },
+    { "relation": "gap_at_least", "A": "t_A₁", "B": "t_B₂", "delta": 45 }
+  ],
+  "query": { "type": "before", "A": "t_A₃", "B": "t_B₃" },
+  "narrative": [
+    "Alpha has milestones A₁→A₂→A₃→A₄.",
+    "Beta has milestones B₁→B₂→B₃→B₄.",
+    "A₂ must complete before B₂ starts.",
+    "Also: B₂ must begin at least 45 minutes after A₁ finishes.",
+    "Question: Does A₃ necessarily complete before B₃ starts?"
+  ]
+}

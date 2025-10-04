@@ -1,0 +1,23 @@
+# OS / IDE
+.DS_Store
+.vscode/
+.idea/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.venv/
+.env
+
+# Local artifacts / receipts
+proofs/**/run_metadata_*.json
+proofs/run_metadata.json
+scratch_run.py.bak
+
+# Streamlit / misc
+.streamlit/
+
+# Backups
+*.bak

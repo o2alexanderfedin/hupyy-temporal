@@ -1,0 +1,85 @@
+{
+  "task": "Interleaved Chains with Offset — verify A3 < B3",
+  "methodology": "Manual testing via web chat interfaces",
+  "note": "Parameters like temperature, seed, and latency are not accessible via chat interfaces",
+  "prompts": [
+    {
+      "prompt_id": "p1_canonical",
+      "prompt": "Project Alpha has milestones A₁→A₂→A₃→A₄ (in order). Project Beta has milestones B₁→B₂→B₃→B₄ (in order). A₂ finishes before B₂ begins; A₃ finishes before B₃ begins. B₂ cannot start until 45 minutes after A₁ ends. Question: Does A₃ complete strictly before B₃ starts?"
+    },
+    {
+      "prompt_id": "p2_paraphrase",
+      "prompt": "Two projects run in parallel. Alpha has steps A₁,A₂,A₃,A₄ in order; Beta has B₁,B₂,B₃,B₄ in order. Rules: A₂ must end before B₂ starts; A₃ before B₃; and B₂ is delayed by at least 45 minutes after A₁. Based on this, is it guaranteed that A₃ ends before B₃ begins?"
+    },
+    {
+      "prompt_id": "p3_long_context",
+      "prompt": "Context: In project planning, tasks may overlap unless constrained. Consider Alpha (A₁..A₄) and Beta (B₁..B₄). Known constraints: A₂ < B₂, A₃ < B₃, and B₂ ≥ A₁ + 45 minutes. Ignore irrelevant details. Key query: Does A₃ finish strictly before B₃ starts?"
+    }
+  ],
+  "runs": [
+    {
+      "model": "gpt-4o",
+      "provider": "OpenAI",
+      "date_utc": "2025-09-27",
+      "prompt_id": "p1_canonical",
+      "response": "To determine whether A₃ completes strictly before B₃ starts, let's carefully analyze the given temporal constraints.\n🧩 Given Structure\nProject Alpha:\nA₁ → A₂ → A₃ → A₄ (strict sequence)\nProject Beta:\nB₁ → B₂ → B₃ → B₄ (strict sequence)\nCross Constraints:\nA₂ finishes before B₂ begins\n⇒ A₂_end < B₂_start\nA₃ finishes before B₃ begins\n⇒ A₃_end < B₃_start\nB₂ cannot start until 45 minutes after A₁ ends\n⇒ B₂_start ≥ A₁_end + 45 minutes\n❓ The Query\nDoes A₃ complete strictly before B₃ starts?\ni.e., is it always true that A₃_end < B₃_start?\n✅ Constraint #2 already asserts that directly:\n\"A₃ finishes before B₃ begins\"\n→ This is explicitly given as a constraint.\nTherefore, YES, the answer is:\n✅ Yes, A₃ completes strictly before B₃ starts.\nThis is a direct result of the given constraint A₃_end < B₃_start, so no further derivation is needed — the system would be unsatisfiable if this constraint were ever violated.\nLet me know if you'd like to see a visual graph or a formal proof sketch (e.g., in SMT encoding).",
+      "notes": "Correct answer but missed derivation requirement - treated explicit constraint as sufficient proof"
+    },
+    {
+      "model": "gpt-4o",
+      "provider": "OpenAI",
+      "date_utc": "2025-09-27",
+      "prompt_id": "p2_paraphrase",
+      "response": "Let's analyze this step by step using logical reasoning based on the constraints you provided.\n\n---\n\n## 🧩 Given Structure\n\n**Project Alpha**:\nA₁ → A₂ → A₃ → A₄\n(every step happens in order)\n\n**Project Beta**:\nB₁ → B₂ → B₃ → B₄\n(also in order)\n\n---\n\n## 🔒 Given Constraints\n\n1. **A₂ ends before B₂ starts**\n   ⇒ `A₂_end < B₂_start`\n2. **A₃ ends before B₃ starts**\n   ⇒ `A₃_end < B₃_start`\n   ⬅️ *Wait! This sounds like the question being asked — let's come back to this.*\n3. **B₂ is delayed by at least 45 minutes after A₁ ends**\n   ⇒ `B₂_start ≥ A₁_end + 45 minutes`\n\n---\n\n## ❓ Question\n\n> Based on the above, is it **guaranteed** that **A₃ ends before B₃ starts**?\n\nWe need to figure out whether **constraint (2)** is **implied** by (1) and (3), or if it's an **independent assumption**.\n\n---\n\n### 🧠 Logical Analysis\n\nWe are given:\n\n* A₁ → A₂ → A₃ (i.e., A₁ ends before A₂ starts, A₂ ends before A₃ starts, etc.)\n* B₁ → B₂ → B₃\n\nAnd:\n\n* `A₂_end < B₂_start`\n* `B₂_start ≥ A₁_end + 45min`\n\nSo:\n\n* Because A₁ → A₂ → A₃:\n\n  * A₁_end < A₂_start < A₂_end < A₃_start < A₃_end\n* Because B₁ → B₂ → B₃:\n\n  * B₂_end < B₃_start\n\nBut we **do not know**:\n\n* The actual durations of A₂ or A₃.\n* How long B₂ lasts before B₃ starts.\n\nThe **only delay** is between A₁ and B₂ (≥45min), but that doesn't necessarily create a guaranteed gap between A₃_end and B₃_start — unless we assume minimum durations for A₂ and A₃.\n\nSo unless we **explicitly assume** constraint (2):\n\n> A₃ ends before B₃ begins\n> …it is **not guaranteed** based solely on (1) and (3).\n\n---\n\n## ❌ Conclusion\n\n> **No, it is not guaranteed** that A₃ ends before B₃ starts based only on:\n>\n> * A₂ ends before B₂ starts\n> * B₂ is delayed 45 minutes after A₁\n\nThat constraint must be **explicitly included**. If it's not, then the durations of A₂, A₃, and B₂ can be manipulated such that B₃ could begin before A₃ ends — meaning there is **no inherent guarantee** without additional information.\n\n---\n\nLet me know if you'd like this expressed as a **formal proof sketch**, visual diagram, or SMT encoding.",
+      "notes": "Contradicted p1 result - shows inconsistency across paraphrase variations"
+    },
+    {
+      "model": "claude-opus-4.1",
+      "provider": "Anthropic",
+      "date_utc": "2025-09-27",
+      "prompt_id": "p1_canonical",
+      "response": "Looking at this problem, I need to trace through the constraints carefully.\nGiven constraints:\n\nA₁ → A₂ → A₃ → A₄ (sequential order)\nB₁ → B₂ → B₃ → B₄ (sequential order)\nA₂ finishes before B₂ begins\nA₃ finishes before B₃ begins\nB₂ cannot start until 45 minutes after A₁ ends\n\nLet me analyze the timing relationships:\n\nFrom \"B₂ cannot start until 45 minutes after A₁ ends\":\n\nB₂_start ≥ A₁_end + 45\n\n\nFrom \"A₂ finishes before B₂ begins\":\n\nA₂_end < B₂_start\n\n\nSince A₁ → A₂ (A₂ comes after A₁):\n\nA₂_end > A₁_end\n\n\nCombining these: A₂_end < B₂_start and B₂_start ≥ A₁_end + 45\n\nTherefore: A₂_end < A₁_end + 45\n\n\nBut we also have A₂_end > A₁_end (from step 3)\n\nSo: A₁_end < A₂_end < A₁_end + 45\nThis means A₂ must complete within 45 minutes after A₁ ends\n\n\n\nNow for the question about A₃ and B₃:\n\nWe're given \"A₃ finishes before B₃ begins\":\n\nA₃_end < B₃_start\n\n\n\nSince this is explicitly stated as a constraint, and there's no equality option given in the constraint (it says \"before\" not \"before or at the same time as\"), the answer is:\nYes, A₃ completes strictly before B₃ starts.\nThis is directly given as one of the constraints in the problem statement.",
+      "notes": "Correct but relied on explicit constraint rather than mathematical derivation"
+    },
+    {
+      "model": "gemini-2.5-pro",
+      "provider": "Google",
+      "date_utc": "2025-09-27",
+      "prompt_id": "p1_canonical",
+      "response": "Yes, A₃ completes strictly before B₃ starts.\n\nThis is explicitly stated as one of the rules in the problem description: \"A₃ finishes before B₃ begins.\" The other conditions do not contradict this rule.",
+      "notes": "Superficial analysis - did not attempt mathematical reasoning about constraint chains"
+    },
+    {
+      "model": "gpt-5",
+      "provider": "OpenAI",
+      "date_utc": "2025-09-28",
+      "prompt_id": "p1_canonical",
+      "response": "Short answer: **Yes — because you explicitly made it a rule.**\nYou stated \"A₃ finishes before B₃ begins,\" which already enforces (A_3^{end} < B_3^{start}). The 45-minute delay from A₁ to B₂ and the A₂→B₂ order constraint don't change that; they're irrelevant once the A₃→B₃ precedence is given.\n\nIf you **remove** the \"A₃ before B₃\" rule, then it's **not guaranteed**. Example schedule that satisfies all other constraints but violates (A_3^{end} < B_3^{start}):\n\n* A₁: 0–1\n* A₂: 1–10 (so A₂ ends before B₂ starts)\n* A₃: 80–120\n* B₁: 2–3\n* B₂: 46–47 (≥ A₁ end + 45)\n* B₃: 47–48\n\nHere (A_3^{end}=120) and (B_3^{start}=47), so (A_3^{end} \\not< B_3^{start}).",
+      "notes": "Provided counterexample but missed that constraint is derivable from given facts"
+    },
+    {
+      "model": "gpt-5",
+      "provider": "OpenAI",
+      "date_utc": "2025-09-28",
+      "prompt_id": "p2_paraphrase",
+      "response": "**Yes.**\nBecause one of your rules is explicitly **\"A₃ before B₃,\"** it directly enforces ( \\text{end}(A_3) < \\text{start}(B_3) ). The other constraints—A₂ finishing before B₂ and B₂ starting ≥45 minutes after A₁—don't affect that precedence; they can only further delay B₂ (and therefore B₃), never violate (A_3 \\to B_3).\n\nIf you *removed* the \"A₃ before B₃\" rule, then it would **not** be guaranteed.",
+      "notes": "Consistent with p1 but still missed mathematical derivation opportunity"
+    },
+    {
+      "model": "claude-opus-4.1",
+      "provider": "Anthropic",
+      "date_utc": "2025-09-28",
+      "prompt_id": "p1_canonical",
+      "response": "Looking at this scheduling problem, I need to trace through the dependencies carefully.\n\nGiven constraints:\n- Project Alpha: A₁ → A₂ → A₃ → A₄ (sequential)\n- Project Beta: B₁ → B₂ → B₃ → B₄ (sequential)\n- A₂ finishes before B₂ begins\n- A₃ finishes before B₃ begins  \n- B₂ cannot start until 45 minutes after A₁ ends\n\nLet me work through the timing relationships:\n\nFrom the constraints:\n1. B₂ can only start after both:\n   - A₂ finishes (given: A₂ finishes before B₂ begins)\n   - 45 minutes have passed since A₁ ended\n\n2. Since A₁ → A₂ are sequential, A₂ cannot start until A₁ ends. Therefore A₂ finishes at least some time after A₁ ends.\n\n3. B₃ can only start after both:\n   - B₂ finishes (since B₂ → B₃ are sequential)\n   - A₃ finishes (given: A₃ finishes before B₃ begins)\n\nThe key insight is that B₂'s start is constrained by A₂'s completion, and B₃'s start is constrained by A₃'s completion. Since we're explicitly told \"A₃ finishes before B₃ begins\" as a separate constraint, this directly states the relationship we're asked about.\n\n**Answer: Yes, A₃ completes strictly before B₃ starts.**\n\nThis is explicitly stated in the given constraints (\"A₃ finishes before B₃ begins\"), which means there must be a non-zero time gap between A₃'s completion and B₃'s start.",
+      "notes": "More detailed analysis than first run but still relied on explicit constraint rather than deriving from dependencies"
+    },
+    {
+      "model": "gemini-2.5-pro",
+      "provider": "Google",
+      "date_utc": "2025-09-28",
+      "prompt_id": "p1_canonical",
+      "response": "Yes, A₃ completes strictly before B₃ starts.\n\nThis is true because it is explicitly stated as one of the given conditions in the problem description: \"**A₃ finishes before B₃ begins**.\"\n\n***\n\n### Deeper Analysis\n\nWhile the answer is \"yes\" based on a literal reading, it's worth noting that this condition **cannot be proven** from the other rules alone. In other words, it is an independent constraint, not a consequence of the other facts.\n\nTo demonstrate this, let's consider a possible timeline where the other rules are met, but this one is not:\n\n1.  Let's say milestone **A₁** finishes at time `t=0` minutes.\n2.  The rule \"B₂ cannot start until 45 minutes after A₁ ends\" means **B₂** can start at `t=45` or later. Let's say it starts exactly at `t=45`.\n3.  The rule \"A₂ finishes before B₂ begins\" is met. For example, **A₂** could finish at `t=30`.\n4.  From the project sequences, we know **A₃** can start any time after A₂ finishes (so, after `t=30`). Let's say it starts at `t=31`.\n5.  We also know **B₃** can start any time after B₂ finishes. We don't know the duration of B₂. Let's assume B₂ is a very short milestone that takes only 5 minutes. It would finish at `t=50`, so **B₃** could start at `t=50`.\n\nNow, let's check the condition in question. A₃ started at `t=31`. We have no information about how long A₃ takes.\n\n* If A₃ takes 10 minutes, it finishes at `t=41`. In this case, it *does* finish before B₃ starts (`41 < 50`).\n* However, if A₃ is a long milestone and takes 25 minutes, it finishes at `t=56` (`31 + 25`). In this case, it finishes *after* B₃ starts (`56 > 50`).\n\nSince we can create a valid scenario where A₃ does *not* finish before B₃ starts, the statement \"A₃ finishes before B₃ begins\" is not a logical consequence of the other rules. It is only true because it was given as a fact.",
+      "notes": "Most thorough analysis - correctly identified constraint independence and provided counterexample"
+    }
+  ]
+}

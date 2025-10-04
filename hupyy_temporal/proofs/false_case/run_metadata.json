@@ -1,13 +1,13 @@
 {
-  "answer": "True",
-  "benchmark_file": "/Users/eitannahmias/Library/Mobile Documents/com~apple~CloudDocs/HUPYY/HUPYY Research/hupyy-temporal/data/flagship.json",
-  "benchmark_sha256": "dd2ae459f9262d3bab993dc0aaec73834d6c8f89d62b4b86d0235ec1b387bd6b",
+  "answer": "False",
+  "benchmark_file": "/Users/eitannahmias/Library/Mobile Documents/com~apple~CloudDocs/HUPYY/HUPYY Research/hupyy-temporal/data/false_case.json",
+  "benchmark_sha256": "fb5b2a36ec9b3bfca37376b0d91d75f32f91812518b2576a47d112e334063667",
   "cvc5_version": "This is cvc5 version 1.3.1 [git ea1b484 on branch HEAD]\ncompiled with GCC version Apple LLVM 15.0.0 (clang-1500.3.9.4)\non Sep 24 2025 18:51:55\n\nCopyright (c) 2009-2025 by the authors and their institutional\naffiliations listed at https://cvc5.github.io/people.html\n\ncvc5 is open-source and is covered by the BSD license (modified).\n\nTHIS SOFTWARE IS PROVIDED AS-IS, WITHOUT ANY WARRANTIES.\nUSE AT YOUR OWN RISK.\n\nThis version of cvc5 is linked against the following non-(L)GPL'ed\nthird party libraries.\n\n  CaDiCaL - Simplified Satisfiability Solver\n  See https://github.com/arminbiere/cadical for copyright information.\n\n  Editline Library\n  See https://thrysoee.dk/editline\n  for copyright information.\n\n  SymFPU - The Symbolic Floating Point Unit\n  See https://github.com/martin-cs/symfpu/tree/CVC4 for copyright information.\n\nThis version of cvc5 is linked against the following third party\nlibraries covered by the LGPLv3 license.\nSee licenses/lgpl-3.0.txt for more information.\n\n  GMP - Gnu Multi Precision Arithmetic Library\n  See http://gmplib.org for copyright information.\n\n  LibPoly polynomial library\n  See https://github.com/SRI-CSL/libpoly for copyright and\n  licensing information.\n\nSee the file COPYING (distributed with the source code, and with\nall binaries) for the full cvc5 copyright, licensing, and (lack of)\nwarranty information.\n",
-  "engine_commit": "fatal: not a git repository (or any of the parent directories): .git",
-  "model_sha256": null,
-  "proof_sha256": "06fb5b95fb49c2977603229a56342361e98984ce9496959f998ccec377ed87da",
+  "engine_commit": "8619e62",
+  "model_sha256": "f99854f5b002be325a003d7ecef48e92ac5ebdb2dcfbbb0675bfb634f46db719",
+  "proof_sha256": null,
   "python": "3.9.6",
   "solver_ms": null,
-  "timestamp": "2025-09-28T14:46:11+0300",
-  "wall_ms": 14
+  "timestamp": "2025-09-29T00:19:25+0300",
+  "wall_ms": 12
 }

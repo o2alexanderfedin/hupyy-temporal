@@ -1,112 +1,181 @@
 #!/usr/bin/env python3
-# scratch_run.py
-import sys, json, time, hashlib, platform, subprocess
+# scratch_run.py — robust runner that finds whatever solver entrypoint you exported,
+# runs it, and writes uniquely-named metadata files for latency stats.
+
+import sys, json, time, hashlib, inspect
 from pathlib import Path
-from typing import Any, Dict
 
-from engine.schemas import Event, Constraint, Query, Problem
-from engine.solver import solve  # returns: answer, proof?, witness?, solver_time_ms?
+# Import package and submodule; be tolerant if one is missing
+import hupyy_temporal.engine as eng_pkg
+try:
+    from hupyy_temporal.engine import solver as eng_solver
+except Exception:  # pragma: no cover
+    eng_solver = None
 
-# ---------- helpers ----------
+# Optional schemas (pydantic) for validation
+try:
+    from hupyy_temporal.engine import schemas  # type: ignore
+except Exception:
+    schemas = None  # graceful fallback
 
-def read(path: Path) -> Dict[str, Any]:
-    return json.loads(path.read_text())
 
-def normalize_core(smt: str) -> str:
-    """Strip comments/blank lines & collapse whitespace for stable hashing."""
-    lines = []
-    for ln in smt.splitlines():
-        s = ln.strip()
-        if not s or s.startswith(";"):
-            continue
-        lines.append(" ".join(s.split()))
-    return "\n".join(lines).strip()
+# ------------------ helpers ------------------
 
-def sha256_text(s: str) -> str:
-    return hashlib.sha256(s.encode("utf-8")).hexdigest()
+def _benchmark_sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
 
-def sha256_file(path: Path) -> str:
-    h = hashlib.sha256()
-    with open(path, "rb") as f:
-        h.update(f.read())
-    return h.hexdigest()
+def _to_problem(case_obj: dict):
+    """Build a Problem Pydantic model if available; else return raw dict."""
+    if schemas is not None and hasattr(schemas, "Problem"):
+        Problem = schemas.Problem
+        # pydantic v2
+        if hasattr(Problem, "model_validate"):
+            return Problem.model_validate(case_obj)
+        # pydantic v1
+        if hasattr(Problem, "parse_obj"):
+            return Problem.parse_obj(case_obj)
+    return case_obj
 
-def save_json(path: Path, obj: Dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(obj, indent=2, sort_keys=True))
-
-# ---------- main run ----------
-
-def run_one(p: Path) -> None:
-    data = read(p)
-
-    events = [Event(**e) for e in data["events"]]
-    constraints = [Constraint(**c) for c in data["constraints"]]
-    query = Query(**data["query"])
-    problem = Problem(events=events, constraints=constraints, query=query)
-
-    t0 = time.time()
-    ans = solve(problem)
-    wall_ms = int((time.time() - t0) * 1000)
-    solver_ms = getattr(ans, "solver_time_ms", None)
-
-    print(f"\n=== {p.name} ===")
-    print("Answer:", ans.answer)
-    if solver_ms is not None:
-        print(f"Solver time (ms): {solver_ms}")
-    print(f"Wall time (ms): {wall_ms}")
-
-    out_dir = Path("proofs") / p.stem
-    out_dir.mkdir(parents=True, exist_ok=True)
-
-    proof_sha = None
-    model_sha = None
-
-    # TRUE → save proof & normalized hash
-    if str(ans.answer).upper() == "TRUE" and getattr(ans, "proof", None):
-        smt = ans.proof
-        (out_dir / "unsat_core.smt2").write_text(smt)
-        norm = normalize_core(smt)
-        (out_dir / "unsat_core.normalized.smt2").write_text(norm)
-        proof_sha = sha256_text(norm)
-        (out_dir / "proof_sha256.txt").write_text(proof_sha)
-        print(f"Proof saved → {out_dir/'unsat_core.smt2'}")
-
-    # FALSE → save witness & hash for reproducibility
-    if str(ans.answer).upper() == "FALSE" and getattr(ans, "witness", None):
-        model_path = out_dir / "model.json"
-        save_json(model_path, ans.witness)
-        model_sha = sha256_file(model_path)
-        (out_dir / "model_sha256.txt").write_text(model_sha)
-        print(f"Witness saved → {model_path}")
-
-    # Metadata (always)
+def _to_dict(obj):
+    """Normalize solver outputs to a plain dict."""
+    if obj is None:
+        return {}
+    # pydantic v2
+    if hasattr(obj, "model_dump"):
+        try:
+            return obj.model_dump()
+        except Exception:
+            pass
+    # pydantic v1
+    if hasattr(obj, "dict"):
+        try:
+            return obj.dict()
+        except TypeError:
+            return obj.dict(by_alias=False)
+    # dataclass
     try:
-        cvc5_version = subprocess.getoutput("cvc5 --version")
+        from dataclasses import is_dataclass, asdict
+        if is_dataclass(obj):
+            return asdict(obj)
     except Exception:
-        cvc5_version = "unknown"
+        pass
+    # namedtuple / simple objects
+    if hasattr(obj, "_asdict"):
+        return obj._asdict()
+    if hasattr(obj, "__dict__"):
+        return dict(obj.__dict__)
+    # already a dict or primitive
+    return obj
 
-    bench_sha = sha256_text(json.dumps(data, sort_keys=True))
-    meta = {
-        "benchmark_file": str(p),
-        "benchmark_sha256": bench_sha,
-        "answer": ans.answer,
-        "solver_ms": solver_ms,
-        "wall_ms": wall_ms,
-        "python": platform.python_version(),
-        "cvc5_version": cvc5_version,
-        "engine_commit": subprocess.getoutput("git rev-parse --short HEAD"),
-        "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
-        "proof_sha256": proof_sha,
-        "model_sha256": model_sha,
+
+def _find_solver_candidates():
+    """Return a list of (owner, name, callable) candidates to try."""
+    owners = []
+    if eng_solver is not None:
+        owners.append(("module", eng_solver))
+    owners.append(("package", eng_pkg))
+
+    preferred_names = {
+        "solve_case", "solve_problem", "solve",
+        "run_problem", "run", "solve_query"
     }
-    save_json(out_dir / "run_metadata.json", meta)
-    print(f"Metadata saved → {out_dir/'run_metadata.json'}")
+
+    cands = []
+
+    # Exact/preferred names first
+    for owner_label, owner in owners:
+        for name in preferred_names:
+            fn = getattr(owner, name, None)
+            if callable(fn):
+                cands.append((owner_label, name, fn))
+
+    # Fuzzy names as fallback (anything with 'solve' or 'run')
+    for owner_label, owner in owners:
+        for name, obj in owner.__dict__.items():
+            if not callable(obj):
+                continue
+            lname = name.lower()
+            if ("solve" in lname or "run" in lname) and all(name != c[1] for c in cands):
+                cands.append((owner_label, name, obj))
+
+    return cands
+
+
+def _run(case_obj: dict):
+    """Try the discovered entrypoints until one runs successfully."""
+    candidates = _find_solver_candidates()
+    if not candidates:
+        raise RuntimeError("No callable solver entrypoints found in hupyy_temporal.engine")
+
+    # Prepare both raw dict and validated Problem (if available)
+    problem = _to_problem(case_obj)
+    args_to_try = [case_obj, problem] if problem is not case_obj else [case_obj]
+
+    # Try each candidate with each arg shape
+    last_err = None
+    t0 = time.perf_counter()
+    for owner_label, name, fn in candidates:
+        for arg in args_to_try:
+            try:
+                # Some entrypoints may accept (problem) or (**kwargs)
+                sig = None
+                try:
+                    sig = inspect.signature(fn)
+                except Exception:
+                    pass
+                if sig and len(sig.parameters) == 0:
+                    res = fn()  # rare, but try
+                else:
+                    res = fn(arg)
+                wall_ms = int((time.perf_counter() - t0) * 1000)
+                rd = _to_dict(res) or {}
+                rd.setdefault("wall_ms", wall_ms)
+                rd.setdefault("solver_time_ms", rd.get("solver_time_ms", None))
+                rd.setdefault("_entrypoint", f"{owner_label}.{name}")
+                return rd
+            except Exception as e:  # try the next shape / next fn
+                last_err = e
+                continue
+
+    # If we got here, nothing worked
+    msg = f"No suitable solver entry point succeeded. Last error: {type(last_err).__name__}: {last_err}"
+    raise RuntimeError(msg)
+
+
+# ------------------ main ------------------
 
 def main():
-    paths = [Path("data/benchmark.json")] if len(sys.argv) < 2 else [Path(p) for p in sys.argv[1:]]
-    for p in paths:
-        run_one(p)
+    if len(sys.argv) != 2:
+        print("Usage: python scratch_run.py <path-to-case.json>", file=sys.stderr)
+        sys.exit(2)
+
+    in_path = Path(sys.argv[1]).resolve()
+    if not in_path.exists():
+        raise FileNotFoundError(in_path)
+
+    case_obj = json.loads(in_path.read_text(encoding="utf-8"))
+    res = _run(case_obj)
+
+    # enrich with reproducibility metadata
+    meta = {
+        **res,
+        "benchmark_file": str(in_path),
+        "benchmark_sha256": _benchmark_sha256(in_path),
+        "timestamp_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "python": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
+    }
+
+    stem = in_path.stem
+    out_dir = Path("proofs") / stem
+    out_dir.mkdir(parents=True, exist_ok=True)
+    uniq = int(time.time() * 1000)
+    out_path = out_dir / f"run_metadata_{uniq}.json"
+    out_path.write_text(json.dumps(meta, indent=2, sort_keys=True), encoding="utf-8")
+
+    print(f"wrote {out_path}")
+    print("entrypoint  :", meta.get("_entrypoint"))
+    print("solver_time_ms:", meta.get("solver_time_ms"))
+    print("wall_ms     :", meta.get("wall_ms"))
 
 if __name__ == "__main__":
     main()
