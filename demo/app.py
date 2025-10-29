@@ -13,7 +13,9 @@ import streamlit as st  # noqa: E402
 from engine.schemas import Event, Constraint, Query, Problem  # noqa: E402
 from engine.solver import solve  # noqa: E402
 
-st.set_page_config(page_title="Hupyy Temporal — Proof Demo", layout="wide")
+st.set_page_config(page_title="Hupyy Temporal — Benchmarks", layout="wide")
+
+st.title("📁 Benchmark Problems")
 
 DATA_DIR = ROOT / "data"
 PROOFS_DIR = ROOT / "proofs"
@@ -49,7 +51,7 @@ def run_and_optionally_save(stem: str, problem: Problem, persist: bool):
 
 
 # ---------- Sidebar ----------
-st.sidebar.title("Hupyy Temporal — Proof Demo")
+st.sidebar.title("Hupyy Temporal")
 available = sorted(p.name for p in DATA_DIR.glob("*.json"))
 default_idx = available.index("flagship.json") if "flagship.json" in available else 0
 choice = st.sidebar.selectbox("Benchmark file", available, index=default_idx)
