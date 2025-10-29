@@ -49,6 +49,13 @@ SMT-LIB v2.7 is the current standard (2025). Use modern syntax:
 - Algebraic datatypes with match expressions
 - Latest theory semantics
 
+For temporal reasoning problems (events and timing constraints):
+- Use logic: (set-logic QF_IDL) for Quantifier-Free Integer Difference Logic
+- Declare integer variables for event times
+- Use (assert (<= t1 t2)) for "event1 before event2"
+- Use (assert (>= t2 (+ t1 N))) for "event2 at least N time units after event1"
+- For the query, assert the negation and check for UNSAT
+
 Problem description:
 {text}
 
@@ -58,13 +65,13 @@ Include (check-sat) and optionally (get-model) at the end.
 Return ONLY the SMT-LIB code, no explanations or markdown formatting."""
 
     try:
-        # Call Claude CLI via stdin
+        # Call Claude CLI via stdin (increased timeout for complex problems)
         result = subprocess.run(
             ["claude", "--print"],
             input=prompt,
             capture_output=True,
             text=True,
-            timeout=30
+            timeout=180
         )
 
         if result.returncode != 0:
@@ -95,7 +102,7 @@ Return ONLY the SMT-LIB code, no explanations or markdown formatting."""
         return smtlib_code
 
     except subprocess.TimeoutExpired:
-        raise Exception("Claude CLI timed out")
+        raise Exception("Claude CLI timed out after 3 minutes. The problem may be too complex. Try simplifying it or breaking it into smaller parts.")
     except FileNotFoundError:
         raise Exception("Claude CLI not found. Please install it from https://claude.com/claude-code")
     except Exception as e:
@@ -114,13 +121,13 @@ def run_cvc5_direct(smtlib_code: str) -> tuple[str, str, int]:
         temp_file = f.name
 
     try:
-        # Run cvc5
+        # Run cvc5 with increased timeout for complex problems
         t0 = time.time()
         result = subprocess.run(
             [str(cvc5_path), temp_file],
             capture_output=True,
             text=True,
-            timeout=30
+            timeout=120
         )
         wall_ms = int((time.time() - t0) * 1000)
 
