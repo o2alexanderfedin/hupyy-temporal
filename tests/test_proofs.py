@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Tuple
 
 ROOT = Path(__file__).resolve().parents[1]
-PY = "python"  # rely on active venv
+PY = "python3"  # rely on active venv
 SCRATCH = ROOT / "scratch_run.py"
 PROOFS = ROOT / "proofs"
 
