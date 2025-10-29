@@ -10,12 +10,14 @@ The hupyy-temporal project currently has a hardcoded JSON schema for temporal re
 
 #### 1. SMT-LIB Standard (Official Specification)
 
-- **Latest Version:** 2.7 (February 2025)
+- **Current Version:** 2.7 (February 2025) ⭐ **USE THIS**
 - **Website:** https://smt-lib.org
 - **Reference Documents:**
-  - [SMT-LIB v2.7 Reference](https://smt-lib.org/papers/smt-lib-reference-v2.7-r2025-02-05.pdf)
-  - [SMT-LIB v2.6 Reference](https://smt-lib.org/papers/smt-lib-reference-v2.6-r2021-05-12.pdf)
-  - [SMT-LIB v2.0 Reference](https://smt-lib.org/papers/smt-lib-reference-v2.0-r10.12.21.pdf)
+  - [SMT-LIB v2.7 Reference](https://smt-lib.org/papers/smt-lib-reference-v2.7-r2025-02-05.pdf) - **Primary reference**
+  - [SMT-LIB v2.6 Reference](https://smt-lib.org/papers/smt-lib-reference-v2.6-r2021-05-12.pdf) - Recent stable
+  - [SMT-LIB v2.0 Reference](https://smt-lib.org/papers/smt-lib-reference-v2.0-r10.12.21.pdf) - Historical reference only
+
+**Important:** Always use **SMT-LIB v2.7** syntax. Version 2.0 (2010) is 15 years old and uses deprecated syntax.
 
 **Coverage:** The SMT-LIB standard defines the official format for ALL SMT theories
 
@@ -25,6 +27,16 @@ The hupyy-temporal project currently has a hardcoded JSON schema for temporal re
 - `:sorts` - Sort declarations
 - `:values` - Value declarations
 - `:notes` - Documentation
+
+**Version Evolution:**
+- **v2.0 (2010)** - Major upgrade from 1.x, foundational standard
+- **v2.6 (2021)** - Added improved datatypes, better quantifier support
+- **v2.7 (2025)** - Modern bit-vector syntax, enhanced theory combinations
+
+**cvc5 Support:** cvc5 fully supports SMT-LIB v2.7 including:
+- Modern bit-vector conversions: `int_to_bv`, `ubv_to_int`, `sbv_to_int`
+- Algebraic datatypes with `match` expressions
+- All standardized theories with latest semantics
 
 **Benefit:** Theory-agnostic, well-documented, and solver-native format
 
@@ -153,11 +165,11 @@ Skip custom JSON format entirely and generate SMT-LIB directly:
 ```python
 def convert_to_smtlib(text: str) -> str:
     """Have Claude generate SMT-LIB format directly"""
-    prompt = f"""Convert this problem to SMT-LIB v2 format:
+    prompt = f"""Convert this problem to SMT-LIB v2.7 format:
 
 {text}
 
-Return valid SMT-LIB code starting with (set-logic ...)
+Return valid SMT-LIB v2.7 code starting with (set-logic ...)
 and ending with (check-sat)."""
     # Call Claude CLI
     return smtlib_code
