@@ -134,18 +134,12 @@ def run_cvc5_standalone(smtlib_code: str) -> tuple[str, str, bool]:
         Path(temp_file).unlink(missing_ok=True)
 
 
-def fix_smtlib_with_error_standalone(smtlib_code: str, error_message: str, original_problem: str) -> str:
+def fix_smtlib_with_error_standalone(error_message: str) -> str:
     """Ask Claude to fix SMT-LIB code based on error message."""
     prompt = f"""The following SMT-LIB v2.7 code produced an error when run through cvc5.
 
-ORIGINAL SMT-LIB CODE:
-{smtlib_code}
-
 ERROR MESSAGE FROM cvc5:
 {error_message}
-
-ORIGINAL PROBLEM (for context):
-{original_problem}
 
 Please fix the SMT-LIB code to resolve this error. Common fixes:
 - If error mentions quantifiers in QF_ logic: change logic from QF_* to non-QF version (e.g., QF_UFLIA -> UFLIA, or use different approach without quantifiers)
@@ -158,7 +152,7 @@ Return ONLY the corrected SMT-LIB v2.7 code, no explanations."""
 
     try:
         result = subprocess.run(
-            ["claude", "--print"],
+            ["claude", "-c", "--print"],
             input=prompt,
             capture_output=True,
             text=True,
@@ -244,9 +238,7 @@ def test_tdd_loop_with_rbac_problem():
 
             try:
                 smtlib_code = fix_smtlib_with_error_standalone(
-                    smtlib_code,
-                    stdout + stderr,
-                    problem_text
+                    stdout + stderr
                 )
                 correction_count += 1
                 print(f"  ✓ Claude generated corrected code (correction #{correction_count})")
