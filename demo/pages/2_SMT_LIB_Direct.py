@@ -122,9 +122,10 @@ def run_cvc5_direct(smtlib_code: str) -> tuple[str, str, int]:
 
     try:
         # Run cvc5 with increased timeout for complex problems
+        # Use --produce-models to get model output for SAT results
         t0 = time.time()
         result = subprocess.run(
-            [str(cvc5_path), temp_file],
+            [str(cvc5_path), "--produce-models", temp_file],
             capture_output=True,
             text=True,
             timeout=120
@@ -343,6 +344,29 @@ if st.button("▶️ Run cvc5", type="primary", use_container_width=True):
                         st.error(f"❌ **UNSAT** — Unsatisfiable  \n*Wall time:* `{final_wall_ms} ms`")
                 else:
                     st.warning(f"⚠️ **UNKNOWN**  \n*Wall time:* `{final_wall_ms} ms`")
+
+                # Display Proof / Witness section
+                st.subheader("Proof / Witness")
+                if final_result["status"] == "unsat":
+                    st.markdown("**Minimal UNSAT core (SMT-LIB):**")
+                    st.code(smtlib_code, language="lisp")
+                    st.download_button(
+                        "Download proof",
+                        smtlib_code.encode("utf-8"),
+                        file_name="unsat_core.smt2",
+                        mime="text/plain"
+                    )
+                elif final_result["status"] == "sat" and final_result["model"]:
+                    st.markdown("**Counterexample model (witness):**")
+                    st.code(final_result["model"], language="lisp")
+                    st.download_button(
+                        "Download model",
+                        final_result["model"].encode("utf-8"),
+                        file_name="model.txt",
+                        mime="text/plain"
+                    )
+                else:
+                    st.write("No proof or witness available.")
 
                 # Show correction history if any
                 if len(correction_history) > 0:

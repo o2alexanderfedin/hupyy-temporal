@@ -119,7 +119,7 @@ def run_cvc5_standalone(smtlib_code: str) -> tuple[str, str, bool]:
 
     try:
         result = subprocess.run(
-            [str(cvc5_path), temp_file],
+            [str(cvc5_path), "--produce-models", temp_file],
             capture_output=True,
             text=True,
             timeout=120
