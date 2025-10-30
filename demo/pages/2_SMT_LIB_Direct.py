@@ -144,8 +144,14 @@ def parse_cvc5_output(stdout: str, stderr: str) -> dict:
     result = {
         "status": "unknown",
         "model": None,
-        "error": None
+        "error": None,
+        "has_error": False
     }
+
+    # Check for errors in output
+    if "(error" in stdout_lower or "error:" in stdout_lower or stderr:
+        result["has_error"] = True
+        result["error"] = stdout if "(error" in stdout_lower else stderr
 
     if "unsat" in stdout_lower:
         result["status"] = "unsat"
@@ -160,12 +166,76 @@ def parse_cvc5_output(stdout: str, stderr: str) -> dict:
 
     return result
 
+def fix_smtlib_with_error(smtlib_code: str, error_message: str, original_problem: str) -> str:
+    """Ask Claude to fix SMT-LIB code based on error message."""
+    prompt = f"""The following SMT-LIB v2.7 code produced an error when run through cvc5.
+
+ORIGINAL SMT-LIB CODE:
+{smtlib_code}
+
+ERROR MESSAGE FROM cvc5:
+{error_message}
+
+ORIGINAL PROBLEM (for context):
+{original_problem}
+
+Please fix the SMT-LIB code to resolve this error. Common fixes:
+- If error mentions quantifiers in QF_ logic: change logic from QF_* to non-QF version (e.g., QF_UFLIA -> UFLIA, or use different approach without quantifiers)
+- If error mentions theory mismatch: use appropriate logic that includes all needed theories
+- If error mentions undefined function: add proper function declarations
+- If error mentions syntax: fix the S-expression syntax
+- If logic is too restrictive: use a more general logic (e.g., ALL for combined theories)
+
+Return ONLY the corrected SMT-LIB v2.7 code, no explanations."""
+
+    try:
+        result = subprocess.run(
+            ["claude", "--print"],
+            input=prompt,
+            capture_output=True,
+            text=True,
+            timeout=120
+        )
+
+        if result.returncode != 0:
+            raise Exception(f"Claude CLI failed: {result.stderr}")
+
+        response = result.stdout.strip()
+
+        # Extract SMT-LIB code
+        if "```" in response:
+            start = response.find("```")
+            start = response.find("\n", start) + 1
+            end = response.find("```", start)
+            if end == -1:
+                end = len(response)
+            response = response[start:end].strip()
+
+        start_idx = response.find('(')
+        end_idx = response.rfind(')')
+
+        if start_idx == -1 or end_idx == -1:
+            raise Exception("No SMT-LIB code found in Claude's response")
+
+        return response[start_idx:end_idx+1]
+
+    except Exception as e:
+        raise Exception(f"Failed to fix SMT-LIB code: {str(e)}")
+
 # Options
-use_claude_conversion = st.checkbox(
-    "🤖 Use Claude AI to convert natural language to SMT-LIB",
-    value=False,
-    help="Enable this to use Claude Code CLI for intelligent conversion of plain text to SMT-LIB v2.7"
-)
+col1, col2 = st.columns(2)
+with col1:
+    use_claude_conversion = st.checkbox(
+        "🤖 Use Claude AI to convert natural language to SMT-LIB",
+        value=False,
+        help="Enable this to use Claude Code CLI for intelligent conversion of plain text to SMT-LIB v2.7"
+    )
+with col2:
+    auto_fix_errors = st.checkbox(
+        "🔧 Auto-fix SMT-LIB errors (TDD loop)",
+        value=True,
+        help="If cvc5 reports an error, automatically ask Claude to fix the SMT-LIB code and retry (up to 3 attempts)"
+    )
 
 # Solve button
 if st.button("▶️ Run cvc5", type="primary", use_container_width=True):
@@ -190,32 +260,104 @@ if st.button("▶️ Run cvc5", type="primary", use_container_width=True):
             if not smtlib_code.startswith('('):
                 st.error("❌ Input doesn't look like valid SMT-LIB code (should start with '(')")
             else:
-                # Run cvc5
-                with st.spinner("Running cvc5..."):
-                    stdout, stderr, wall_ms = run_cvc5_direct(smtlib_code)
+                # TDD Loop: Try to run cvc5, auto-fix errors if needed
+                MAX_ATTEMPTS = 3
+                attempt = 1
+                final_result = None
+                final_stdout = None
+                final_stderr = None
+                final_wall_ms = None
+                correction_history = []
 
-                # Parse results
-                result = parse_cvc5_output(stdout, stderr)
+                while attempt <= MAX_ATTEMPTS:
+                    # Run cvc5
+                    spinner_text = f"Running cvc5 (attempt {attempt}/{MAX_ATTEMPTS})..." if attempt > 1 else "Running cvc5..."
+                    with st.spinner(spinner_text):
+                        stdout, stderr, wall_ms = run_cvc5_direct(smtlib_code)
 
-                # Display results
+                    # Parse results
+                    result = parse_cvc5_output(stdout, stderr)
+
+                    # Save final results
+                    final_result = result
+                    final_stdout = stdout
+                    final_stderr = stderr
+                    final_wall_ms = wall_ms
+
+                    # Check if we have an error and should try to fix it
+                    if result["has_error"] and auto_fix_errors and attempt < MAX_ATTEMPTS:
+                        st.warning(f"⚠️ Attempt {attempt} failed with error. Asking Claude to fix...")
+
+                        with st.expander(f"🔍 Error from attempt {attempt}"):
+                            st.code(result["error"], language="text")
+
+                        try:
+                            with st.spinner(f"🔧 Claude is fixing the SMT-LIB code (attempt {attempt}/{MAX_ATTEMPTS})..."):
+                                fixed_code = fix_smtlib_with_error(smtlib_code, result["error"], user_input)
+
+                            # Show what was corrected
+                            correction_history.append({
+                                "attempt": attempt,
+                                "error": result["error"],
+                                "fixed_code": fixed_code
+                            })
+
+                            st.info(f"✓ Claude generated corrected SMT-LIB code")
+                            with st.expander(f"📄 View corrected code (attempt {attempt + 1})"):
+                                st.code(fixed_code, language="lisp")
+
+                            # Use fixed code for next attempt
+                            smtlib_code = fixed_code
+                            attempt += 1
+                            continue
+
+                        except Exception as fix_error:
+                            st.error(f"❌ Failed to auto-fix: {fix_error}")
+                            break
+                    else:
+                        # Success or no more retries
+                        break
+
+                # Display final results
                 st.subheader("Results")
 
-                if result["status"] == "sat":
-                    st.success(f"✅ **SAT** — Satisfiable  \n*Wall time:* `{wall_ms} ms`")
-                    if result["model"]:
+                if final_result["has_error"]:
+                    if len(correction_history) > 0:
+                        st.error(f"❌ Failed after {attempt} attempt(s). Last error persists.")
+                    else:
+                        st.error("❌ **ERROR** in cvc5 execution")
+                    with st.expander("🔍 View Error"):
+                        st.code(final_result["error"], language="text")
+                elif final_result["status"] == "sat":
+                    if len(correction_history) > 0:
+                        st.success(f"✅ **SAT** — Satisfiable (succeeded after {len(correction_history)} auto-correction(s))  \n*Wall time:* `{final_wall_ms} ms`")
+                    else:
+                        st.success(f"✅ **SAT** — Satisfiable  \n*Wall time:* `{final_wall_ms} ms`")
+                    if final_result["model"]:
                         with st.expander("🔍 View Model"):
-                            st.code(result["model"], language="lisp")
-                elif result["status"] == "unsat":
-                    st.error(f"❌ **UNSAT** — Unsatisfiable  \n*Wall time:* `{wall_ms} ms`")
+                            st.code(final_result["model"], language="lisp")
+                elif final_result["status"] == "unsat":
+                    if len(correction_history) > 0:
+                        st.error(f"❌ **UNSAT** — Unsatisfiable (succeeded after {len(correction_history)} auto-correction(s))  \n*Wall time:* `{final_wall_ms} ms`")
+                    else:
+                        st.error(f"❌ **UNSAT** — Unsatisfiable  \n*Wall time:* `{final_wall_ms} ms`")
                 else:
-                    st.warning(f"⚠️ **UNKNOWN**  \n*Wall time:* `{wall_ms} ms`")
+                    st.warning(f"⚠️ **UNKNOWN**  \n*Wall time:* `{final_wall_ms} ms`")
+
+                # Show correction history if any
+                if len(correction_history) > 0:
+                    with st.expander(f"🔧 Auto-correction History ({len(correction_history)} correction(s))"):
+                        for i, correction in enumerate(correction_history):
+                            st.markdown(f"**Correction {i + 1}:**")
+                            st.text(f"Error: {correction['error'][:200]}...")
+                            st.markdown("---")
 
                 # Show raw output
                 with st.expander("📋 Raw cvc5 Output"):
-                    st.text(stdout)
-                    if stderr:
+                    st.text(final_stdout)
+                    if final_stderr:
                         st.text("--- stderr ---")
-                        st.text(stderr)
+                        st.text(final_stderr)
 
                 # Download buttons
                 col1, col2 = st.columns(2)
@@ -229,7 +371,7 @@ if st.button("▶️ Run cvc5", type="primary", use_container_width=True):
                 with col2:
                     st.download_button(
                         "Download cvc5 output",
-                        stdout.encode("utf-8"),
+                        final_stdout.encode("utf-8"),
                         file_name="output.txt",
                         mime="text/plain"
                     )
