@@ -1,7 +1,7 @@
 # Makefile for Hupyy Temporal
 # Cathedral-grade reproducibility for Stanford/Anthropic reviewers
 
-.PHONY: run all test demo clean proofs
+.PHONY: run all test test-tdd demo clean proofs
 
 # Use active venv's python by default
 PYTHON ?= python
@@ -20,6 +20,12 @@ all:
 # 3) Determinism tests (bit-for-bit proofs & witnesses)
 test:
 	pytest -q
+
+# 4) TDD loop integration test (requires Claude CLI)
+test-tdd:
+	@echo "Running TDD loop integration test..."
+	@echo "This will take several minutes (calls Claude CLI multiple times)"
+	$(PYTHON) tests/test_tdd_loop_integration.py
 
 # 4) Launch the Streamlit UI
 demo:
