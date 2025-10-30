@@ -26,6 +26,7 @@ spec = importlib.util.spec_from_file_location(
     "smt_lib_direct",
     ROOT / "demo" / "pages" / "2_SMT_LIB_Direct.py"
 )
+assert spec is not None, "Failed to create module spec for SMT_LIB_Direct page"
 smt_lib_direct = importlib.util.module_from_spec(spec)
 
 

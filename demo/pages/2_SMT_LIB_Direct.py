@@ -255,7 +255,7 @@ if st.button("▶️ Run cvc5", type="primary", use_container_width=True):
                 st.error("❌ Input doesn't look like valid SMT-LIB code (should start with '(')")
             else:
                 # TDD Loop: Try to run cvc5, auto-fix errors if needed
-                MAX_ATTEMPTS = 3
+                MAX_ATTEMPTS = 10
                 attempt = 1
                 final_result = None
                 final_stdout = None
@@ -311,6 +311,12 @@ if st.button("▶️ Run cvc5", type="primary", use_container_width=True):
                     else:
                         # Success or no more retries
                         break
+
+                # Type narrowing: loop always runs at least once
+                assert final_result is not None
+                assert final_stdout is not None
+                assert final_stderr is not None
+                assert final_wall_ms is not None
 
                 # Display final results
                 st.subheader("Results")

@@ -121,8 +121,8 @@ def parse_custom_input(text: str, use_claude: bool = False):
             # Parse JSON format
             events = [Event(**e) for e in data.get("events", [])]
             constraints = [Constraint(**c) for c in data.get("constraints", [])]
-            query = Query(**data["query"])
-            return Problem(events=events, constraints=constraints, query=query)
+            json_query = Query(**data["query"])
+            return Problem(events=events, constraints=constraints, query=json_query)
         except (json.JSONDecodeError, KeyError, TypeError) as e:
             raise ValueError(f"Invalid JSON format: {e}")
 
@@ -136,7 +136,7 @@ def parse_custom_input(text: str, use_claude: bool = False):
 
     events = []
     constraints = []
-    query = None
+    query: Query | None = None
 
     current_section = None
 

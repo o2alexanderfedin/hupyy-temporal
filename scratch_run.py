@@ -73,9 +73,10 @@ def run_one(p: Path) -> None:
         print(f"Proof saved → {out_dir/'unsat_core.smt2'}")
 
     # FALSE → save witness & hash for reproducibility
-    if str(ans.answer).upper() == "FALSE" and getattr(ans, "witness", None):
+    witness = getattr(ans, "witness", None)
+    if str(ans.answer).upper() == "FALSE" and witness is not None:
         model_path = out_dir / "model.json"
-        save_json(model_path, ans.witness)
+        save_json(model_path, witness)
         model_sha = sha256_file(model_path)
         (out_dir / "model_sha256.txt").write_text(model_sha)
         print(f"Witness saved → {model_path}")
