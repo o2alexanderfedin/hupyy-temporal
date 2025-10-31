@@ -41,7 +41,7 @@ Or enter a natural language problem description.""",
 )
 
 def convert_to_smtlib(text: str) -> str:
-    """Use Claude Code CLI to convert natural language to SMT-LIB v2.7 format."""
+    """Use AI Hive® CLI to convert natural language to SMT-LIB v2.7 format."""
     prompt = f"""Convert the following problem to SMT-LIB v2.7 format.
 
 SMT-LIB v2.7 is the current standard (2025). Use modern syntax:
@@ -82,15 +82,22 @@ For temporal reasoning problems (events and timing constraints):
 - For the query, assert the negation and check for UNSAT
 
 Problem description:
+<PROBLEM-DESCRIPTION>
 {text}
+</PROBLEM-DESCRIPTION>
 
-Return valid SMT-LIB v2.7 code starting with (set-logic ...)
-Include (check-sat) and optionally (get-model) at the end.
+The problem description can include references/links/urls/paths to the external documents that **must** be included as a part of the problem.
+If any of the references/links/urls/paths cannot be resolved, then there is a potential that the result will be UNSAT.
+**IMPORTANT**: only the complete problem description with all loaded external contents (if any provided) can be considered as a source of truth or false here!
+
+Thoroughly and religiously and systematically review the complete problem description (including referenced documents), and
+ - Return valid SMT-LIB v2.7 code starting with (set-logic ...)
+ - Include (check-sat) and (get-model) at the end.
 
 Return ONLY the SMT-LIB code, no explanations or markdown formatting."""
 
     try:
-        # Call Claude CLI via stdin (increased timeout for complex problems)
+        # Call AI Hive® CLI via stdin (increased timeout for complex problems)
         result = subprocess.run(
             ["claude", "--print"],
             input=prompt,
@@ -100,7 +107,7 @@ Return ONLY the SMT-LIB code, no explanations or markdown formatting."""
         )
 
         if result.returncode != 0:
-            raise Exception(f"Claude CLI failed: {result.stderr}")
+            raise Exception(f"AI Hive® CLI failed: {result.stderr}")
 
         # Extract SMT-LIB from response
         response = result.stdout.strip()
@@ -121,15 +128,15 @@ Return ONLY the SMT-LIB code, no explanations or markdown formatting."""
         end_idx = response.rfind(')')
 
         if start_idx == -1 or end_idx == -1:
-            raise Exception("No SMT-LIB code found in Claude's response")
+            raise Exception("No SMT-LIB code found in AI Hive®'s response")
 
         smtlib_code = response[start_idx:end_idx+1]
         return smtlib_code
 
     except subprocess.TimeoutExpired:
-        raise Exception("Claude CLI timed out after 3 minutes. The problem may be too complex. Try simplifying it or breaking it into smaller parts.")
+        raise Exception("AI Hive® CLI timed out after 3 minutes. The problem may be too complex. Try simplifying it or breaking it into smaller parts.")
     except FileNotFoundError:
-        raise Exception("Claude CLI not found. Please install it from https://claude.com/claude-code")
+        raise Exception("AI Hive® CLI not found. Please install it from https://claude.com/claude-code")
     except Exception as e:
         raise Exception(f"Failed to convert to SMT-LIB: {str(e)}")
 
@@ -193,7 +200,7 @@ def parse_cvc5_output(stdout: str, stderr: str) -> dict:
     return result
 
 def fix_smtlib_with_error(error_message: str) -> str:
-    """Ask Claude to fix SMT-LIB code based on error message."""
+    """Ask AI Hive® to fix SMT-LIB code based on error message."""
     prompt = f"""The following SMT-LIB v2.7 code produced an error when run through cvc5.
 
 ERROR MESSAGE FROM cvc5:
@@ -235,7 +242,7 @@ Return ONLY the corrected SMT-LIB v2.7 code, no explanations."""
         )
 
         if result.returncode != 0:
-            raise Exception(f"Claude CLI failed: {result.stderr}")
+            raise Exception(f"AI Hive® CLI failed: {result.stderr}")
 
         response = result.stdout.strip()
 
@@ -252,7 +259,7 @@ Return ONLY the corrected SMT-LIB v2.7 code, no explanations."""
         end_idx = response.rfind(')')
 
         if start_idx == -1 or end_idx == -1:
-            raise Exception("No SMT-LIB code found in Claude's response")
+            raise Exception("No SMT-LIB code found in AI Hive®'s response")
 
         return response[start_idx:end_idx+1]
 
@@ -263,15 +270,15 @@ Return ONLY the corrected SMT-LIB v2.7 code, no explanations."""
 col1, col2 = st.columns(2)
 with col1:
     use_claude_conversion = st.checkbox(
-        "🤖 Use Claude AI to convert natural language to SMT-LIB",
+        "🤖 Use AI Hive® to convert natural language to SMT-LIB",
         value=False,
-        help="Enable this to use Claude Code CLI for intelligent conversion of plain text to SMT-LIB v2.7"
+        help="Enable this to use AI Hive® CLI for intelligent conversion of plain text to SMT-LIB v2.7"
     )
 with col2:
     auto_fix_errors = st.checkbox(
         "🔧 Auto-fix SMT-LIB errors (TDD loop)",
         value=True,
-        help="If cvc5 reports an error, automatically ask Claude to fix the SMT-LIB code and retry (up to 3 attempts)"
+        help="If cvc5 reports an error, automatically ask AI Hive® to fix the SMT-LIB code and retry (up to 3 attempts)"
     )
 
 # Solve button
@@ -285,7 +292,7 @@ if st.button("▶️ Run cvc5", type="primary", use_container_width=True):
 
             # Get SMT-LIB code
             if should_use_claude:
-                with st.spinner("🤖 Using Claude AI to generate SMT-LIB v2.7..."):
+                with st.spinner("🤖 Using AI Hive® to generate SMT-LIB v2.7..."):
                     smtlib_code = convert_to_smtlib(user_input)
                     st.success("✓ Generated SMT-LIB code")
                     with st.expander("📄 View Generated SMT-LIB"):
@@ -323,13 +330,13 @@ if st.button("▶️ Run cvc5", type="primary", use_container_width=True):
 
                     # Check if we have an error and should try to fix it
                     if result["has_error"] and auto_fix_errors and attempt < MAX_ATTEMPTS:
-                        st.warning(f"⚠️ Attempt {attempt} failed with error. Asking Claude to fix...")
+                        st.warning(f"⚠️ Attempt {attempt} failed with error. Asking AI Hive® to fix...")
 
                         with st.expander(f"🔍 Error from attempt {attempt}"):
                             st.code(result["error"], language="text")
 
                         try:
-                            with st.spinner(f"🔧 Claude is fixing the SMT-LIB code (attempt {attempt}/{MAX_ATTEMPTS})..."):
+                            with st.spinner(f"🔧 AI Hive® is fixing the SMT-LIB code (attempt {attempt}/{MAX_ATTEMPTS})..."):
                                 fixed_code = fix_smtlib_with_error(result["error"])
 
                             # Show what was corrected
@@ -339,7 +346,7 @@ if st.button("▶️ Run cvc5", type="primary", use_container_width=True):
                                 "fixed_code": fixed_code
                             })
 
-                            st.info(f"✓ Claude generated corrected SMT-LIB code")
+                            st.info(f"✓ AI Hive® generated corrected SMT-LIB code")
                             with st.expander(f"📄 View corrected code (attempt {attempt + 1})"):
                                 st.code(fixed_code, language="lisp")
 
@@ -517,16 +524,16 @@ with st.expander("ℹ️ SMT-LIB Format Help"):
     (get-model)
     ```
 
-    ### Natural Language with Claude AI
+    ### Natural Language with AI Hive®
 
-    Enable "Use Claude AI" and describe your problem in plain English:
+    Enable "Use AI Hive®" and describe your problem in plain English:
 
     ```
     Find two positive integers x and y such that their sum is 10
     and x is greater than 5.
     ```
 
-    Claude will convert this to proper SMT-LIB v2.7 format.
+    AI Hive® will convert this to proper SMT-LIB v2.7 format.
 
     ### Resources
 
