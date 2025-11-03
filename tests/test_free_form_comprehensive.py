@@ -69,6 +69,7 @@ CRITICAL - Logic Selection (choose the RIGHT logic to avoid errors):
    - QF_UFLIA = Quantifier-Free, Uninterpreted Functions, Linear Integer Arithmetic
    - QF_IDL = Quantifier-Free, Integer Difference Logic
    - QF_LIA = Quantifier-Free, Linear Integer Arithmetic
+   - QF_BV = Quantifier-Free, Bit-Vectors
 
 2. If problem requires quantifiers (forall/exists), use non-QF logics:
    - UFLIA = Uninterpreted Functions + Linear Integer Arithmetic (with quantifiers)
@@ -77,7 +78,15 @@ CRITICAL - Logic Selection (choose the RIGHT logic to avoid errors):
 
 3. If problem has multiple theories, ensure logic includes ALL of them:
    - Example: functions + integers → UFLIA or QF_UFLIA (not just LIA)
+   - Example: arrays + integers → AUFLIA or QF_AUFLIA
    - When uncertain about theories, use ALL logic
+
+4. Common logic patterns:
+   - Simple integer constraints (no functions, no quantifiers) → QF_LIA
+   - Temporal/timing constraints → QF_IDL
+   - Functions over integers (no quantifiers) → QF_UFLIA
+   - Access control with functions → QF_UFLIA or ALL
+   - Complex problems with quantifiers → ALL
 
 For temporal reasoning problems (events and timing constraints):
 - Use logic: (set-logic QF_IDL) for Quantifier-Free Integer Difference Logic
@@ -87,10 +96,17 @@ For temporal reasoning problems (events and timing constraints):
 - For the query, assert the negation and check for UNSAT
 
 Problem description:
+<PROBLEM-DESCRIPTION>
 {problem_text}
+</PROBLEM-DESCRIPTION>
 
-Return valid SMT-LIB v2.7 code starting with (set-logic ...)
-Include (check-sat) and optionally (get-model) at the end.
+The problem description can include references/links/urls/paths to the external documents that **must** be included as a part of the problem.
+If any of the references/links/urls/paths cannot be resolved, then there is a potential that the result will be UNSAT.
+**IMPORTANT**: only the complete problem description with all loaded external contents (if any provided) can be considered as a source of truth or false here!
+
+Thoroughly and religiously and systematically review the complete problem description (including referenced documents), and
+ - Return valid SMT-LIB v2.7 code starting with (set-logic ...)
+ - Include (check-sat) and (get-model) at the end.
 
 Return ONLY the SMT-LIB code, no explanations or markdown formatting."""
 

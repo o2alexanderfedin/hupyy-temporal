@@ -3,6 +3,7 @@ import sys
 import subprocess
 import tempfile
 import time
+import json
 from pathlib import Path
 
 # Make sure we can import engine/*
@@ -266,6 +267,77 @@ Return ONLY the corrected SMT-LIB v2.7 code, no explanations."""
     except Exception as e:
         raise Exception(f"Failed to fix SMT-LIB code: {str(e)}")
 
+def generate_human_explanation(user_input: str, smtlib_code: str, status: str, cvc5_output: str) -> str:
+    """Generate human-readable explanation using Claude."""
+
+    status_upper = status.upper()
+
+    prompt = f"""You are explaining the result of a formal verification system that uses SMT solvers.
+
+**User's Original Problem:**
+{user_input[:1000]}
+
+**Generated SMT-LIB Code:**
+```smt2
+{smtlib_code[:1500]}
+```
+
+**Result:** {status_upper}
+
+**Technical Details:**
+{cvc5_output[:2000] if cvc5_output else "No additional output"}
+
+Generate a clear, human-readable explanation of this result. Format it as a structured proof with bullet points, similar to this example:
+
+```
+Proof:
+    •    SEC Rule 15c3-5 margin limit: 50% of account equity
+    •    Account equity: $10,000,000
+    •    Maximum allowed margin: $5,000,000
+    •    Trade #1,248 margin requirement: $5,500,000
+    •    Verification: $5,500,000 > $5,000,000 ✗
+    •    VIOLATION: Trade exceeded SEC margin requirements by $500,000
+```
+
+Your explanation should:
+1. Start with the key facts and rules from the problem
+2. Show the specific values or constraints being checked
+3. Walk through the verification step-by-step
+4. Use ✓ for satisfied conditions and ✗ for violations
+5. End with a clear conclusion based on the result:
+   - For SAT: Explain what satisfying assignment was found
+   - For UNSAT: Explain why the constraints are contradictory
+   - For UNKNOWN: Explain what made this undecidable
+
+Return ONLY the formatted explanation, no preamble."""
+
+    try:
+        result_proc = subprocess.run(
+            ["claude", "--print"],
+            input=prompt,
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+
+        if result_proc.returncode == 0:
+            explanation = result_proc.stdout.strip()
+            # Clean up any markdown code blocks
+            if "```" in explanation:
+                parts = explanation.split("```")
+                for part in parts:
+                    if part.strip() and not part.strip().startswith(('python', 'json', 'text', 'smt2', 'lisp')):
+                        return part.strip()
+            return explanation
+        else:
+            return f"⚠️ Could not generate explanation: {result_proc.stderr}"
+    except subprocess.TimeoutExpired:
+        return "⚠️ Explanation generation timed out"
+    except FileNotFoundError:
+        return "⚠️ Claude CLI not found. Install from https://claude.com/claude-code"
+    except Exception as e:
+        return f"⚠️ Error generating explanation: {str(e)}"
+
 # Options
 col1, col2 = st.columns(2)
 with col1:
@@ -393,6 +465,22 @@ if st.button("▶️ Run cvc5", type="primary", use_container_width=True):
                         st.error(f"❌ **UNSAT** — Unsatisfiable  \n*Wall time:* `{final_wall_ms} ms`")
                 else:
                     st.warning(f"⚠️ **UNKNOWN**  \n*Wall time:* `{final_wall_ms} ms`")
+
+                # Generate human-readable explanation
+                if not final_result["has_error"]:
+                    st.markdown("---")
+                    st.subheader("📝 Human-Readable Explanation")
+
+                    with st.spinner("Generating explanation with Claude..."):
+                        explanation = generate_human_explanation(
+                            user_input,
+                            smtlib_code,
+                            final_result["status"],
+                            final_stdout
+                        )
+
+                        # Display explanation in a nice box
+                        st.markdown(f"```\n{explanation}\n```")
 
                 # Display Proof / Witness section
                 st.subheader("Proof / Witness")
