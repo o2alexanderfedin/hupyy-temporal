@@ -18,3 +18,14 @@ ENV/
 
 # OS
 .DS_Store
+
+# Test results and logs (generated output)
+eval/*_results.jsonl
+eval/*_test.log
+eval/comparison_report.md
+eval/comparison_report.csv
+eval/test.pid
+
+# Keep baselines and llm_runs
+!eval/baselines.md
+!eval/llm_runs.json
