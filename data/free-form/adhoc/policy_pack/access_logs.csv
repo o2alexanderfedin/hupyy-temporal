@@ -1,0 +1,3 @@
+employee_id,room,ts_local,has_2fa,manager_weekend_approval
+E-7829,Building5_ServerRoom,2025-03-15 02:47:00-07:00,false,false
+E-1042,Building5_ServerRoom,2025-03-16 01:55:00-07:00,true,true

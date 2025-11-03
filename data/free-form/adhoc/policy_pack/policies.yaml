@@ -1,0 +1,58 @@
+version: 1
+time_zone: America/Los_Angeles
+
+precedence:
+  - explicit_denies
+  - safety_contraindications
+  - regulatory_limits
+  - exceptions
+  - default_deny
+
+access_control:
+  rule: |
+    ALLOWED(user, room, t) ←
+      TopSecret(user) OR
+      ( Secret(user)
+        AND TwoFactor(user,t) within 10 minutes before BadgeScan(user,room,t)
+        AND OnCall(user,room.site,weekend_of(t)) )
+    .
+    DENY if Building(room) == "5" AND Classified(room) AND NOT ALLOWED.
+    UNKNOWN if any required signal missing (TwoFactor, OnCall, Clearance).
+
+aml:
+  thresholds:
+    rolling_24h: 1000000   # $1M
+    rolling_7d: 3000000    # $3M
+  aggregation:
+    by:
+      - customer
+      - ultimate_beneficial_owner≥25%
+  exceptions:
+    - tag: seasonal_payroll
+      limit_bump_7d: 1000000  # +$1M only if HR flag present & docs_valid=true
+  rule: |
+    APPROVABLE(tx) ←
+      total_outflows(customer, 24h) ≤ T24
+      AND total_outflows(UBO_cluster(customer), 7d) ≤ T7_adjusted
+      AND NOT Sanctioned(customer)
+      AND KYC_up_to_date(customer, ≤ 365d).
+    DENY if any bound exceeded.
+    UNKNOWN if KYC missing or UBO graph incomplete.
+
+clinical:
+  dosing:
+    drugX:
+      base_mg_per_kg: 7.5
+      max_single_mg: 120
+      renal_adjust:
+        eGFR_<45: 0.5
+        eGFR_<30: contraindicated
+      interactions:
+        - drug: drugY
+          window_h: 24
+          action: contraindicated
+      require_recent_labs_h: 48
+  rule: |
+    APPROVE(order) if calculated_dose(order) ≤ caps AND no_contraindications.
+    DENY if contraindicated or caps exceeded.
+    UNKNOWN if required lab values are older than window or missing.

@@ -1,0 +1,31 @@
+ACME CORPORATION - SYSTEM ACCESS CONTROL POLICY
+Effective Date: January 1, 2024
+Last Updated: March 15, 2025
+=== BASE ACCESS RULES ===
+1. All employees with role "Engineer" have READ access to Production Database during business hours (Monday-Friday, 9:00 AM - 6:00 PM EST).
+2. Employees with clearance level "Senior" or higher have WRITE access to Production Database at any time.
+3. Employees in the "On-Call Rotation" schedule have EMERGENCY OVERRIDE access 24/7 regardless of role or clearance.
+=== SECURITY EXCEPTIONS ===
+4. Any employee under active investigation by Security Compliance team has ALL SYSTEM ACCESS SUSPENDED, overriding all other rules including emergency override.
+5. Investigation status is confidential and not disclosed to IT systems, documented separately in Security Compliance records.
+=== EMPLOYEE RECORDS ===
+Employee ID: E-4782
+Name: Marcus Webb
+Role: Senior Engineer
+Clearance Level: Senior
+Department: Platform Infrastructure
+On-Call Rotation: YES (March 10-16, 2025)
+Status: Active
+=== SECURITY COMPLIANCE RECORDS (CONFIDENTIAL) ===
+Investigation ID: INV-2025-089
+Subject: Marcus Webb (E-4782)
+Reason: Suspected unauthorized data export
+Status: Active
+Start Date: March 12, 2025, 2:00 PM EST
+Restriction: ALL SYSTEM ACCESS SUSPENDED per Policy Section 4
+=== ACCESS ATTEMPT LOG ===
+Timestamp: March 14, 2025, 11:47 PM EST
+User: Marcus Webb (E-4782)
+Requested Action: WRITE access to Production Database
+System: Production-DB-Primary
+Incident: P1 Production Outage (ticket #18472)
