@@ -1,0 +1,5 @@
+tx_id,customer,amount_usd,ts_local,tag,docs_valid
+T1,ClientA,400000,2025-06-10 09:10:00-07:00,,
+T2,ClientA,390000,2025-06-10 14:15:00-07:00,,
+T3,ClientA,250000,2025-06-11 08:55:00-07:00,,
+T4,ClientA,900000,2025-06-12 10:03:00-07:00,seasonal_payroll,true

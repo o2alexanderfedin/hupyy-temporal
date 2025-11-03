@@ -17,6 +17,287 @@ st.set_page_config(page_title="SMT-LIB Direct - Hupyy Temporal", layout="wide")
 
 st.title("🔧 SMT-LIB Direct Mode")
 
+def validate_phase_completeness(response: str) -> dict:
+    """Validate that all required phase markers are present in the response.
+
+    Returns:
+        dict with keys:
+            - complete: bool - True if all phases found
+            - missing_phases: list - List of missing phase numbers
+            - found_phases: list - List of found phase numbers
+    """
+    required_phases = [1, 2, 3, 4, 5]
+    found_phases = []
+
+    for phase_num in required_phases:
+        phase_marker = f"## PHASE {phase_num}:"
+        if phase_marker in response or f"PHASE {phase_num}" in response:
+            found_phases.append(phase_num)
+
+    missing_phases = [p for p in required_phases if p not in found_phases]
+
+    return {
+        "complete": len(missing_phases) == 0,
+        "missing_phases": missing_phases,
+        "found_phases": found_phases,
+        "total_found": len(found_phases),
+        "total_required": len(required_phases)
+    }
+
+def sanitize_for_pdf(text) -> str:
+    """Sanitize text for PDF generation by replacing problematic Unicode characters.
+
+    Args:
+        text: Input text that may contain Unicode characters (str, bytes, or bytearray)
+
+    Returns:
+        Sanitized text safe for PDF rendering
+    """
+    if not text:
+        return ""
+
+    # Convert bytes/bytearray to string first
+    if isinstance(text, (bytes, bytearray)):
+        text = text.decode('utf-8', errors='replace')
+
+    # Ensure we have a string
+    if not isinstance(text, str):
+        text = str(text)
+
+    # Replace common Unicode characters with ASCII equivalents
+    replacements = {
+        '\u2018': "'",  # Left single quotation mark
+        '\u2019': "'",  # Right single quotation mark
+        '\u201c': '"',  # Left double quotation mark
+        '\u201d': '"',  # Right double quotation mark
+        '\u2013': '-',  # En dash
+        '\u2014': '--', # Em dash
+        '\u2026': '...', # Horizontal ellipsis
+        '\u00a0': ' ',  # Non-breaking space
+        '\u2022': '*',  # Bullet
+        '\u00b0': ' degrees', # Degree symbol
+        '\u00d7': 'x',  # Multiplication sign
+        '\u2192': '->', # Right arrow
+        '\u2190': '<-', # Left arrow
+        '\u2260': '!=', # Not equal
+        '\u2264': '<=', # Less than or equal
+        '\u2265': '>=', # Greater than or equal
+        '\u221e': 'infinity', # Infinity
+        '\u2200': 'forall',   # For all
+        '\u2203': 'exists',   # Exists
+        '\u2227': 'AND',      # Logical AND
+        '\u2228': 'OR',       # Logical OR
+        '\u00ac': 'NOT',      # Logical NOT
+    }
+
+    result = text
+    for unicode_char, ascii_replacement in replacements.items():
+        result = result.replace(unicode_char, ascii_replacement)
+
+    # Remove any remaining non-ASCII characters
+    result = result.encode('ascii', 'replace').decode('ascii')
+
+    return result
+
+def generate_pdf_report(
+    query_id: str,
+    user_input: str,
+    smtlib_code: str,
+    status: str,
+    cvc5_stdout: str,
+    cvc5_stderr: str,
+    wall_ms: int,
+    model: str = None,
+    phase_outputs: str = None,
+    human_explanation: str = None,
+    correction_history: list = None
+) -> bytes:
+    """Generate comprehensive PDF report for SMT-LIB verification.
+
+    Args:
+        query_id: Unique identifier for this query
+        user_input: Original user input/problem
+        smtlib_code: Generated or provided SMT-LIB code
+        status: Result status (sat/unsat/unknown/error)
+        cvc5_stdout: Standard output from cvc5
+        cvc5_stderr: Standard error from cvc5
+        wall_ms: Wall clock time in milliseconds
+        model: Model output (if SAT)
+        phase_outputs: Complete phase analysis (if AI conversion was used)
+        human_explanation: Human-readable explanation
+        correction_history: List of auto-corrections made
+
+    Returns:
+        PDF file as bytes
+    """
+    from fpdf import FPDF
+    from datetime import datetime
+
+    # Sanitize all text inputs
+    user_input = sanitize_for_pdf(user_input)
+    smtlib_code = sanitize_for_pdf(smtlib_code)
+    cvc5_stdout = sanitize_for_pdf(cvc5_stdout)
+    cvc5_stderr = sanitize_for_pdf(cvc5_stderr) if cvc5_stderr else ""
+    if model:
+        model = sanitize_for_pdf(model)
+    if phase_outputs:
+        phase_outputs = sanitize_for_pdf(phase_outputs)
+    if human_explanation:
+        human_explanation = sanitize_for_pdf(human_explanation)
+
+    # Create PDF object
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_auto_page_break(auto=True, margin=15)
+
+    # Title
+    pdf.set_font("Helvetica", "B", 20)
+    pdf.cell(0, 10, "HUPYY TEMPORAL - SMT-LIB VERIFICATION REPORT", ln=True, align="C")
+    pdf.ln(5)
+
+    # Metadata
+    pdf.set_font("Helvetica", "", 10)
+    pdf.cell(0, 6, f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", ln=True)
+    pdf.cell(0, 6, f"Query ID: {query_id}", ln=True)
+    pdf.cell(0, 6, f"Status: {status.upper()}", ln=True)
+    pdf.cell(0, 6, f"Execution Time: {wall_ms} ms", ln=True)
+    pdf.ln(10)
+
+    # Section 1: Problem Statement
+    pdf.set_font("Helvetica", "B", 14)
+    pdf.cell(0, 8, "1. PROBLEM STATEMENT", ln=True)
+    pdf.set_font("Helvetica", "", 10)
+    pdf.ln(2)
+
+    # Wrap long text
+    problem_text = user_input[:2000] if len(user_input) > 2000 else user_input
+    pdf.multi_cell(0, 5, problem_text)
+    pdf.ln(8)
+
+    # Section 2: Phase Analysis (if available)
+    if phase_outputs:
+        pdf.set_font("Helvetica", "B", 14)
+        pdf.cell(0, 8, "2. PHASE ANALYSIS (AI CONVERSION)", ln=True)
+        pdf.set_font("Helvetica", "", 9)
+        pdf.ln(2)
+
+        # Truncate if too long
+        phase_text = phase_outputs[:8000] if len(phase_outputs) > 8000 else phase_outputs
+        pdf.multi_cell(0, 4, phase_text)
+        pdf.ln(8)
+
+        section_num = 3
+    else:
+        section_num = 2
+
+    # Section: Generated SMT-LIB Code
+    pdf.set_font("Helvetica", "B", 14)
+    pdf.cell(0, 8, f"{section_num}. GENERATED SMT-LIB CODE", ln=True)
+    pdf.set_font("Courier", "", 8)
+    pdf.ln(2)
+
+    # Extract logic
+    logic = "Unknown"
+    if "(set-logic" in smtlib_code:
+        logic_start = smtlib_code.find("(set-logic") + 11
+        logic_end = smtlib_code.find(")", logic_start)
+        if logic_end > logic_start:
+            logic = smtlib_code[logic_start:logic_end].strip()
+
+    pdf.set_font("Helvetica", "", 10)
+    pdf.cell(0, 6, f"Logic: {logic}", ln=True)
+    pdf.ln(2)
+
+    pdf.set_font("Courier", "", 7)
+    code_text = smtlib_code[:6000] if len(smtlib_code) > 6000 else smtlib_code
+    pdf.multi_cell(0, 3.5, code_text)
+    pdf.ln(8)
+
+    section_num += 1
+
+    # Section: Verification Results
+    pdf.set_font("Helvetica", "B", 14)
+    pdf.cell(0, 8, f"{section_num}. VERIFICATION RESULTS", ln=True)
+    pdf.set_font("Helvetica", "", 10)
+    pdf.ln(2)
+
+    pdf.cell(0, 6, f"Status: {status.upper()}", ln=True)
+    pdf.cell(0, 6, f"Wall Time: {wall_ms} ms", ln=True)
+    pdf.ln(4)
+
+    if model and status.lower() == "sat":
+        pdf.set_font("Helvetica", "B", 11)
+        pdf.cell(0, 6, "Model (Satisfying Assignment):", ln=True)
+        pdf.set_font("Courier", "", 8)
+        model_text = model[:3000] if len(model) > 3000 else model
+        pdf.multi_cell(0, 4, model_text)
+        pdf.ln(4)
+
+    section_num += 1
+
+    # Section: Human-Readable Explanation
+    if human_explanation:
+        pdf.set_font("Helvetica", "B", 14)
+        pdf.cell(0, 8, f"{section_num}. HUMAN-READABLE EXPLANATION", ln=True)
+        pdf.set_font("Helvetica", "", 10)
+        pdf.ln(2)
+
+        explanation_text = human_explanation[:3000] if len(human_explanation) > 3000 else human_explanation
+        pdf.multi_cell(0, 5, explanation_text)
+        pdf.ln(8)
+
+        section_num += 1
+
+    # Section: Correction History (if TDD loop was used)
+    if correction_history and len(correction_history) > 0:
+        pdf.set_font("Helvetica", "B", 14)
+        pdf.cell(0, 8, f"{section_num}. AUTO-CORRECTION HISTORY", ln=True)
+        pdf.set_font("Helvetica", "", 10)
+        pdf.ln(2)
+
+        pdf.cell(0, 6, f"Total corrections: {len(correction_history)}", ln=True)
+        pdf.ln(2)
+
+        for i, correction in enumerate(correction_history):
+            pdf.set_font("Helvetica", "B", 10)
+            pdf.cell(0, 6, f"Correction {i+1}:", ln=True)
+            pdf.set_font("Helvetica", "", 9)
+            error_text = correction.get('error', 'Unknown error')[:500]
+            pdf.multi_cell(0, 4, f"Error: {error_text}")
+            pdf.ln(2)
+
+        pdf.ln(6)
+        section_num += 1
+
+    # Section: Technical Details (Appendix)
+    pdf.add_page()
+    pdf.set_font("Helvetica", "B", 14)
+    pdf.cell(0, 8, f"{section_num}. TECHNICAL DETAILS (APPENDIX)", ln=True)
+    pdf.set_font("Helvetica", "", 9)
+    pdf.ln(2)
+
+    pdf.set_font("Helvetica", "B", 11)
+    pdf.cell(0, 6, "cvc5 Standard Output:", ln=True)
+    pdf.set_font("Courier", "", 7)
+    stdout_text = cvc5_stdout[:3000] if len(cvc5_stdout) > 3000 else cvc5_stdout
+    pdf.multi_cell(0, 3.5, stdout_text)
+    pdf.ln(4)
+
+    if cvc5_stderr:
+        pdf.set_font("Helvetica", "B", 11)
+        pdf.cell(0, 6, "cvc5 Standard Error:", ln=True)
+        pdf.set_font("Courier", "", 7)
+        stderr_text = cvc5_stderr[:1000] if len(cvc5_stderr) > 1000 else cvc5_stderr
+        pdf.multi_cell(0, 3.5, stderr_text)
+
+    # Footer
+    pdf.ln(10)
+    pdf.set_font("Helvetica", "I", 8)
+    pdf.cell(0, 6, "Generated by Hupyy Temporal - AI Hive Powered SMT Verification", ln=True, align="C")
+
+    # Return PDF as bytes
+    return pdf.output(dest='S').encode('latin1')
+
 st.markdown("""
 This page implements the **SMT-LIB Direct Generation** approach from the multi-theory documentation.
 Work directly with cvc5's native format without JSON intermediaries.
@@ -41,70 +322,308 @@ Or enter a natural language problem description.""",
     help="Paste SMT-LIB code directly or describe your problem in plain text"
 )
 
+def load_external_files(text: str) -> str:
+    """Load external files referenced in the user input.
+
+    Args:
+        text: User input that may contain file/directory references
+
+    Returns:
+        Enhanced text with loaded file contents
+    """
+    import re
+    from pathlib import Path
+
+    # Look for directory references
+    dir_pattern = r'(/[^\s]+/)'
+    directory_matches = re.findall(dir_pattern, text)
+
+    loaded_content = []
+
+    for dir_path in directory_matches:
+        dir_path = dir_path.rstrip('/')
+        path_obj = Path(dir_path)
+
+        if path_obj.exists() and path_obj.is_dir():
+            loaded_content.append(f"\n\n=== LOADED FILES FROM: {dir_path} ===\n")
+
+            # Load all files in the directory
+            for file_path in sorted(path_obj.iterdir()):
+                if file_path.is_file():
+                    try:
+                        with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                            content = f.read()
+                        loaded_content.append(f"\n--- FILE: {file_path.name} ---\n{content}\n")
+                    except Exception as e:
+                        loaded_content.append(f"\n--- FILE: {file_path.name} (FAILED TO LOAD: {e}) ---\n")
+
+    if loaded_content:
+        return text + "\n" + "".join(loaded_content)
+    else:
+        return text
+
 def convert_to_smtlib(text: str) -> str:
     """Use AI Hive® CLI to convert natural language to SMT-LIB v2.7 format."""
-    prompt = f"""Convert the following problem to SMT-LIB v2.7 format.
 
-SMT-LIB v2.7 is the current standard (2025). Use modern syntax:
-- Modern bit-vector conversions: int_to_bv, ubv_to_int, sbv_to_int
-- Algebraic datatypes with match expressions
+    # Load external files if referenced
+    enhanced_text = load_external_files(text)
+
+    prompt = f"""You are a formal verification expert converting problems to SMT-LIB v2.7 format.
+
+**CRITICAL: You MUST follow ALL 5 PHASES in order and produce ALL required deliverables before generating code.**
+
+═══════════════════════════════════════════════════════════════════════════════
+PHASE 1: PROBLEM COMPREHENSION
+═══════════════════════════════════════════════════════════════════════════════
+
+1.1 Read the problem description carefully
+1.2 Identify and load ALL external references (files, URLs, paths mentioned)
+    - If ANY reference cannot be loaded → document as UNSAT risk
+    - Merge all loaded content into complete problem description
+1.3 Classify the problem domain and complexity
+
+**MANDATORY OUTPUT:**
+```markdown
+## PHASE 1: PROBLEM COMPREHENSION
+**Problem Type:** [temporal/arithmetic/access-control/hybrid/other]
+**Domain:** [describe]
+**External References:** [list all, or "none"]
+**Reference Status:** [all-loaded / partial / failed / none]
+**Complete Problem:** [merged problem text with all references]
+**Complexity:** [simple/medium/complex/very-complex]
+```
+
+═══════════════════════════════════════════════════════════════════════════════
+PHASE 2: DOMAIN MODELING
+═══════════════════════════════════════════════════════════════════════════════
+
+2.1 Extract ALL entities (variables, constants, functions, relations)
+2.2 Extract ALL constraints with natural language + formal notation
+2.3 Identify the verification query
+
+**MANDATORY OUTPUT:**
+```markdown
+## PHASE 2: DOMAIN MODEL
+
+### Entities
+**Variables:**
+- name1: Type — description
+- name2: Type — description
+[list ALL variables]
+
+**Constants:**
+- const1 = value — description
+[list ALL constants, or "none"]
+
+**Functions/Relations:**
+- func(args) → ReturnType — description
+[list ALL functions/relations, or "none"]
+
+### Constraints
+1. Natural: [describe constraint in English]
+   Formal: [mathematical notation]
+   Entities: [which entities involved]
+
+2. Natural: [...]
+   Formal: [...]
+   Entities: [...]
+
+[list ALL constraints]
+
+### Query
+**Question:** [what exactly is being verified?]
+**Approach:** [direct-sat / negation-based-proof / other]
+```
+
+═══════════════════════════════════════════════════════════════════════════════
+PHASE 3: LOGIC SELECTION
+═══════════════════════════════════════════════════════════════════════════════
+
+3.1 Analyze theory requirements using this checklist:
+    ☐ Quantifiers (∀/∃)? YES/NO
+    ☐ Uninterpreted Functions/Relations? YES/NO
+    ☐ Arrays? YES/NO
+    ☐ Arithmetic? Integer/Real/BitVec/None
+    ☐ Strings? YES/NO
+    ☐ Datatypes? YES/NO
+    ☐ Other theories? [list]
+
+3.2 Select logic using this DECISION TREE:
+
+    IF needs quantifiers (forall/exists):
+        IF uncertain which theories → "ALL"
+        ELSE IF functions + integers → "UFLIA"
+        ELSE IF arrays + integers → "AUFLIA"
+        ELSE IF just integers → "LIA"
+        ELSE → "ALL" (safest)
+    ELSE (quantifier-free):
+        IF single theory:
+            integers only → "QF_LIA"
+            difference logic → "QF_IDL"
+            bit-vectors → "QF_BV"
+        ELSE IF multiple theories:
+            functions + integers → "QF_UFLIA"
+            arrays + integers → "QF_AUFLIA"
+            uncertain → "ALL"
+
+**MANDATORY OUTPUT:**
+```markdown
+## PHASE 3: LOGIC SELECTION
+
+### Theory Analysis
+- Quantifiers: [YES/NO] — [why/why not]
+- Uninterpreted Functions: [YES/NO] — [why/why not]
+- Arrays: [YES/NO] — [why/why not]
+- Arithmetic: [Integer/Real/None/BitVec] — [why]
+- Strings: [YES/NO] — [why/why not]
+- Datatypes: [YES/NO] — [why/why not]
+
+### Decision
+**Selected Logic:** `[EXACT-LOGIC-NAME]`
+
+**Justification:**
+[Explain step-by-step why this logic was chosen based on theory analysis]
+
+**Alternatives Rejected:**
+- [logic]: [reason rejected]
+[list at least 2 alternatives considered]
+```
+
+═══════════════════════════════════════════════════════════════════════════════
+PHASE 4: SMT-LIB ENCODING
+═══════════════════════════════════════════════════════════════════════════════
+
+4.1 Generate declarations for ALL entities from Phase 2
+4.2 Encode ALL constraints from Phase 2 with comments
+4.3 Encode the query from Phase 2
+4.4 Add (check-sat) and (get-model)
+
+**SMT-LIB v2.7 SYNTAX RULES:**
+- Modern bit-vectors: int_to_bv, ubv_to_int, sbv_to_int (NOT old syntax)
+- Datatypes: use (declare-datatype ...) with match expressions
 - Latest theory semantics
 
-CRITICAL - Logic Selection (choose the RIGHT logic to avoid errors):
+**MANDATORY OUTPUT:**
+```smt2
+;; ================================================================
+;; SMT-LIB v2.7 Encoding
+;; Logic: [logic from Phase 3]
+;; Problem: [brief description]
+;; ================================================================
 
-1. NEVER use quantifiers (forall/exists) with QF_* logics - they are Quantifier-Free!
-   - QF_UFLIA = Quantifier-Free, Uninterpreted Functions, Linear Integer Arithmetic
-   - QF_IDL = Quantifier-Free, Integer Difference Logic
-   - QF_LIA = Quantifier-Free, Linear Integer Arithmetic
-   - QF_BV = Quantifier-Free, Bit-Vectors
+(set-logic [LOGIC])
+(set-option :produce-models true)
+(set-option :produce-unsat-cores true)
 
-2. If problem requires quantifiers (forall/exists), use non-QF logics:
-   - UFLIA = Uninterpreted Functions + Linear Integer Arithmetic (with quantifiers)
-   - LIA = Linear Integer Arithmetic (with quantifiers)
-   - ALL = All theories combined (with quantifiers) - use when uncertain
+;; ========== Declarations ==========
+;; [Entity name]: [Type] — [description from Phase 2]
+(declare-const ...)
 
-3. If problem has multiple theories, ensure logic includes ALL of them:
-   - Example: functions + integers → UFLIA or QF_UFLIA (not just LIA)
-   - Example: arrays + integers → AUFLIA or QF_AUFLIA
-   - When uncertain about theories, use ALL logic
+;; ========== Constraints ==========
+;; Constraint 1: [natural language from Phase 2]
+(assert ...)
 
-4. Common logic patterns:
-   - Simple integer constraints (no functions, no quantifiers) → QF_LIA
-   - Temporal/timing constraints → QF_IDL
-   - Functions over integers (no quantifiers) → QF_UFLIA
-   - Access control with functions → QF_UFLIA or ALL
-   - Complex problems with quantifiers → ALL
+;; Constraint 2: [...]
+(assert ...)
 
-For temporal reasoning problems (events and timing constraints):
-- Use logic: (set-logic QF_IDL) for Quantifier-Free Integer Difference Logic
-- Declare integer variables for event times
-- Use (assert (<= t1 t2)) for "event1 before event2"
-- Use (assert (>= t2 (+ t1 N))) for "event2 at least N time units after event1"
-- For the query, assert the negation and check for UNSAT
+;; ========== Query ==========
+;; Query: [question from Phase 2]
+;; Approach: [approach from Phase 2]
+(check-sat)
+(get-model)
+```
 
-Problem description:
+═══════════════════════════════════════════════════════════════════════════════
+PHASE 5: SELF-VERIFICATION
+═══════════════════════════════════════════════════════════════════════════════
+
+Before finalizing, verify:
+
+5.1 COMPLETENESS:
+    ☐ Every entity from Phase 2 is declared
+    ☐ Every constraint from Phase 2 is encoded
+    ☐ Query matches Phase 2 question
+    ☐ All external references integrated
+
+5.2 CORRECTNESS:
+    ☐ Logic from Phase 3 supports all operators used
+    ☐ No undeclared symbols (every var/func referenced is declared)
+    ☐ Type consistency (Int with Int, Bool with Bool, etc.)
+    ☐ Balanced parentheses
+    ☐ Valid SMT-LIB v2.7 syntax
+
+5.3 LOGIC COMPATIBILITY:
+    ☐ If logic is QF_* → NO quantifiers (forall/exists) used
+    ☐ If using functions → logic includes UF or ALL
+    ☐ If using arrays → logic includes A or ALL
+    ☐ All operators exist in selected logic
+
+**MANDATORY OUTPUT:**
+```markdown
+## PHASE 5: VERIFICATION
+
+### Completeness Check
+- Entities declared: [count] / [count from Phase 2] ✓
+- Constraints encoded: [count] / [count from Phase 2] ✓
+- Query encoded: [YES] ✓
+- External refs: [status] ✓
+
+### Correctness Check
+- Logic compatibility: ✓
+- No undeclared symbols: ✓
+- Type consistency: ✓
+- Syntax valid: ✓
+
+### Issues Found
+[List any issues, or "None"]
+
+### Corrections Applied
+[List corrections, or "None needed"]
+```
+
+═══════════════════════════════════════════════════════════════════════════════
+EXECUTION REQUIREMENTS
+═══════════════════════════════════════════════════════════════════════════════
+
+**YOU MUST:**
+1. Complete ALL 5 phases in order
+2. Produce ALL required outputs for each phase
+3. Show your work (don't skip intermediate deliverables)
+4. If Phase 5 finds issues, FIX them and re-verify
+
+**FINAL RESPONSE FORMAT:**
+
+```
+[Phase 1 Output]
+[Phase 2 Output]
+[Phase 3 Output]
+[Phase 4 Output - SMT-LIB code]
+[Phase 5 Output]
+
+FINAL SMT-LIB CODE:
+```smt2
+[Clean SMT-LIB code without any markdown or explanations]
+```
+```
+
+═══════════════════════════════════════════════════════════════════════════════
+USER'S PROBLEM
+═══════════════════════════════════════════════════════════════════════════════
+
 <PROBLEM-DESCRIPTION>
-{text}
+{enhanced_text}
 </PROBLEM-DESCRIPTION>
 
-The problem description can include references/links/urls/paths to the external documents that **must** be included as a part of the problem.
-If any of the references/links/urls/paths cannot be resolved, then there is a potential that the result will be UNSAT.
-**IMPORTANT**: only the complete problem description with all loaded external contents (if any provided) can be considered as a source of truth or false here!
-
-Thoroughly and religiously and systematically review the complete problem description (including referenced documents), and
- - Return valid SMT-LIB v2.7 code starting with (set-logic ...)
- - Include (check-sat) and (get-model) at the end.
-
-Return ONLY the SMT-LIB code, no explanations or markdown formatting."""
+BEGIN PHASE 1 NOW."""
 
     try:
-        # Call AI Hive® CLI via stdin (increased timeout for complex problems)
+        # Call AI Hive® CLI via stdin (increased timeout for 5-phase processing)
         result = subprocess.run(
             ["claude", "--print"],
             input=prompt,
             capture_output=True,
             text=True,
-            timeout=180
+            timeout=300  # Increased for multi-phase processing
         )
 
         if result.returncode != 0:
@@ -113,29 +632,105 @@ Return ONLY the SMT-LIB code, no explanations or markdown formatting."""
         # Extract SMT-LIB from response
         response = result.stdout.strip()
 
-        # Try to extract from markdown code blocks
-        if "```" in response:
-            # Find the code block
-            start = response.find("```")
-            # Skip past the opening ``` and any language identifier
-            start = response.find("\n", start) + 1
-            end = response.find("```", start)
-            if end == -1:
-                end = len(response)
-            response = response[start:end].strip()
+        # ENHANCED EXTRACTION: Look for "FINAL SMT-LIB CODE:" marker first
+        final_marker = "FINAL SMT-LIB CODE:"
+        smtlib_code = None
 
-        # Find first ( and last )
-        start_idx = response.find('(')
-        end_idx = response.rfind(')')
+        if final_marker in response:
+            # Extract everything after the marker
+            after_marker = response[response.find(final_marker) + len(final_marker):]
 
-        if start_idx == -1 or end_idx == -1:
-            raise Exception("No SMT-LIB code found in AI Hive®'s response")
+            # Find code block
+            if "```" in after_marker:
+                start = after_marker.find("```")
+                # Skip past the opening ``` and any language identifier (e.g., smt2, lisp)
+                start = after_marker.find("\n", start) + 1
+                end = after_marker.find("```", start)
+                if end == -1:
+                    end = len(after_marker)
+                smtlib_code = after_marker[start:end].strip()
+            else:
+                # No code block, look for first (
+                start_idx = after_marker.find('(')
+                if start_idx != -1:
+                    smtlib_code = after_marker[start_idx:].strip()
 
-        smtlib_code = response[start_idx:end_idx+1]
+        # Fallback: old extraction method if marker not found
+        if smtlib_code is None:
+            # Try to extract from markdown code blocks
+            if "```" in response:
+                # Find the code block
+                start = response.find("```")
+                # Skip past the opening ``` and any language identifier
+                start = response.find("\n", start) + 1
+                end = response.find("```", start)
+                if end == -1:
+                    end = len(response)
+                response = response[start:end].strip()
+
+            # Find first ( and last )
+            start_idx = response.find('(')
+            end_idx = response.rfind(')')
+
+            if start_idx == -1 or end_idx == -1:
+                raise Exception("No SMT-LIB code found in AI Hive®'s response")
+
+            smtlib_code = response[start_idx:end_idx+1]
+
+        if smtlib_code is None:
+            raise Exception("Failed to extract SMT-LIB code from AI Hive®'s response")
+
+        # STRIP LEADING COMMENTS: Remove SMT-LIB comments (lines starting with ;;) before validation
+        lines = smtlib_code.split('\n')
+        # Find first non-comment, non-empty line
+        first_code_line_idx = 0
+        for i, line in enumerate(lines):
+            stripped = line.strip()
+            if stripped and not stripped.startswith(';;'):
+                first_code_line_idx = i
+                break
+
+        # Reconstruct code starting from first non-comment line
+        if first_code_line_idx > 0:
+            smtlib_code = '\n'.join(lines[first_code_line_idx:])
+
+        # Strip any remaining leading/trailing whitespace
+        smtlib_code = smtlib_code.strip()
+
+        # VALIDATION: Basic syntax check
+        if not smtlib_code.startswith('('):
+            raise Exception(f"SMT-LIB code doesn't start with '(': {smtlib_code[:50]}")
+
+        if not smtlib_code.rstrip().endswith(')'):
+            raise Exception(f"SMT-LIB code doesn't end with ')': {smtlib_code[-50:]}")
+
+        # Case-insensitive check for set-logic
+        if '(set-logic' not in smtlib_code.lower():
+            # Store response for debugging
+            import streamlit as st
+            st.session_state['last_conversion_error'] = {
+                'extracted_code': smtlib_code[:500],
+                'full_response': response[:2000]
+            }
+            raise Exception(
+                "SMT-LIB code missing (set-logic ...) declaration. "
+                "Check 'View Detailed Phase Analysis' for the full AI response."
+            )
+
+        if '(check-sat)' not in smtlib_code.lower():
+            raise Exception("SMT-LIB code missing (check-sat) command")
+
+        # STORE PHASE OUTPUTS for debugging (will be used in UI)
+        # Store the full response including all phase analysis
+        # This will be displayed in an expander for transparency
+        import streamlit as st
+        st.session_state['last_phase_outputs'] = response
+        st.session_state['last_extracted_code'] = smtlib_code  # For debugging
+
         return smtlib_code
 
     except subprocess.TimeoutExpired:
-        raise Exception("AI Hive® CLI timed out after 3 minutes. The problem may be too complex. Try simplifying it or breaking it into smaller parts.")
+        raise Exception("AI Hive® CLI timed out after 5 minutes. The problem may be too complex. Try simplifying it or breaking it into smaller parts.")
     except FileNotFoundError:
         raise Exception("AI Hive® CLI not found. Please install it from https://claude.com/claude-code")
     except Exception as e:
@@ -200,38 +795,103 @@ def parse_cvc5_output(stdout: str, stderr: str) -> dict:
 
     return result
 
-def fix_smtlib_with_error(error_message: str) -> str:
-    """Ask AI Hive® to fix SMT-LIB code based on error message."""
+def fix_smtlib_with_error(error_message: str, original_problem: str = "", phase_outputs: str = None) -> str:
+    """Ask AI Hive® to fix SMT-LIB code based on error message and phase analysis."""
+
+    # Include phase outputs if available for better context
+    phase_context = ""
+    if phase_outputs and "PHASE" in phase_outputs:
+        phase_context = f"""
+**Previous Phase Analysis Available:**
+The AI previously completed a structured analysis with 5 phases.
+Key information from that analysis:
+{phase_outputs[:3000]}
+
+Use this context to understand the original intent and avoid changing the problem semantics.
+"""
+
     prompt = f"""The following SMT-LIB v2.7 code produced an error when run through cvc5.
 
-ERROR MESSAGE FROM cvc5:
+**ERROR MESSAGE FROM cvc5:**
 {error_message}
 
-Please fix the SMT-LIB code to resolve this error.
+**ORIGINAL PROBLEM:**
+{original_problem[:1000] if original_problem else "Not available"}
 
-LOGIC SELECTION RULES (critical to avoid errors):
+{phase_context}
 
-1. QUANTIFIER ERRORS - "doesn't include THEORY_QUANTIFIERS":
-   - NEVER use quantifiers (forall/exists) with QF_* logics
-   - Fix: Change logic from QF_* to non-QF version:
-     * QF_UFLIA → UFLIA (keeps functions + integers, adds quantifiers)
-     * QF_LIA → LIA (keeps integers, adds quantifiers)
-     * QF_IDL → IDL (keeps difference logic, adds quantifiers)
-   - Or use ALL logic for maximum compatibility
+**TASK:** Fix the SMT-LIB code using the structured approach.
 
-2. THEORY MISMATCH ERRORS - "doesn't include THEORY_*":
-   - Logic missing required theory (e.g., using functions but logic doesn't include UF)
-   - Fix: Use logic that includes all needed theories:
-     * Need functions + integers → QF_UFLIA or UFLIA
-     * Need arrays + integers → QF_AUFLIA or AUFLIA
-     * Uncertain → use ALL logic
+═══════════════════════════════════════════════════════════════════════════════
+ERROR DIAGNOSIS & FIX (Use Phases 3-5 only)
+═══════════════════════════════════════════════════════════════════════════════
 
-3. OTHER COMMON FIXES:
-   - Undefined function: add proper (declare-fun ...) declarations
-   - Syntax errors: fix S-expression syntax
-   - Too restrictive logic: upgrade to more general logic or ALL
+PHASE 3-REVISIT: LOGIC CORRECTION
 
-Return ONLY the corrected SMT-LIB v2.7 code, no explanations."""
+Analyze the error to determine if logic selection was wrong:
+
+**Common Error Patterns:**
+1. "doesn't include THEORY_QUANTIFIERS"
+   → Logic is QF_* but code uses forall/exists
+   → FIX: Change to non-QF logic (QF_UFLIA → UFLIA, or use ALL)
+
+2. "doesn't include THEORY_UF"
+   → Logic missing uninterpreted functions
+   → FIX: Add UF to logic (QF_LIA → QF_UFLIA, or use ALL)
+
+3. "doesn't include THEORY_ARRAYS"
+   → Logic missing array theory
+   → FIX: Add A to logic (QF_LIA → QF_AUFLIA, or use ALL)
+
+4. "undeclared symbol" or "not declared"
+   → Missing declaration
+   → FIX: Add (declare-const ...) or (declare-fun ...)
+
+5. Syntax errors
+   → Malformed S-expressions
+   → FIX: Check parentheses, operator syntax
+
+**MANDATORY OUTPUT:**
+```markdown
+## ERROR DIAGNOSIS
+**Error Type:** [quantifier/theory/syntax/declaration/other]
+**Root Cause:** [explain what went wrong]
+**Required Fix:** [what needs to change]
+
+## CORRECTED LOGIC SELECTION (if needed)
+**New Logic:** `[LOGIC]`
+**Reason:** [why this logic fixes the error]
+```
+
+PHASE 4-REVISIT: CORRECTED ENCODING
+
+Generate the corrected SMT-LIB code:
+- Fix the identified error
+- Maintain all original constraints from the problem
+- Preserve original intent
+
+PHASE 5-REVISIT: VERIFICATION
+
+Verify the fix:
+☐ Error is addressed
+☐ Logic supports all constructs
+☐ All entities declared
+☐ Syntax valid
+
+**FINAL RESPONSE:**
+
+```markdown
+[Error Diagnosis Output]
+[Corrected Logic Output]
+[Verification Output]
+
+CORRECTED SMT-LIB CODE:
+```smt2
+[corrected code]
+```
+```
+
+BEGIN ERROR DIAGNOSIS NOW."""
 
     try:
         result = subprocess.run(
@@ -239,7 +899,7 @@ Return ONLY the corrected SMT-LIB v2.7 code, no explanations."""
             input=prompt,
             capture_output=True,
             text=True,
-            timeout=120
+            timeout=180  # Increased for phase-aware correction
         )
 
         if result.returncode != 0:
@@ -247,22 +907,68 @@ Return ONLY the corrected SMT-LIB v2.7 code, no explanations."""
 
         response = result.stdout.strip()
 
-        # Extract SMT-LIB code
-        if "```" in response:
-            start = response.find("```")
-            start = response.find("\n", start) + 1
-            end = response.find("```", start)
-            if end == -1:
-                end = len(response)
-            response = response[start:end].strip()
+        # ENHANCED EXTRACTION: Look for "CORRECTED SMT-LIB CODE:" marker first
+        corrected_marker = "CORRECTED SMT-LIB CODE:"
+        smtlib_code = None
 
-        start_idx = response.find('(')
-        end_idx = response.rfind(')')
+        if corrected_marker in response:
+            # Extract everything after the marker
+            after_marker = response[response.find(corrected_marker) + len(corrected_marker):]
 
-        if start_idx == -1 or end_idx == -1:
-            raise Exception("No SMT-LIB code found in AI Hive®'s response")
+            # Find code block
+            if "```" in after_marker:
+                start = after_marker.find("```")
+                start = after_marker.find("\n", start) + 1  # Skip language identifier
+                end = after_marker.find("```", start)
+                if end == -1:
+                    end = len(after_marker)
+                smtlib_code = after_marker[start:end].strip()
+            else:
+                # No code block, look for first (
+                start_idx = after_marker.find('(')
+                if start_idx != -1:
+                    smtlib_code = after_marker[start_idx:].strip()
 
-        return response[start_idx:end_idx+1]
+        # Fallback: old extraction method
+        if smtlib_code is None:
+            # Extract SMT-LIB code
+            if "```" in response:
+                start = response.find("```")
+                start = response.find("\n", start) + 1
+                end = response.find("```", start)
+                if end == -1:
+                    end = len(response)
+                response = response[start:end].strip()
+
+            start_idx = response.find('(')
+            end_idx = response.rfind(')')
+
+            if start_idx == -1 or end_idx == -1:
+                raise Exception("No SMT-LIB code found in AI Hive®'s response")
+
+            smtlib_code = response[start_idx:end_idx+1]
+
+        if smtlib_code is None:
+            raise Exception("Failed to extract corrected SMT-LIB code from AI Hive®'s response")
+
+        # STRIP LEADING COMMENTS: Remove SMT-LIB comments (lines starting with ;;) before returning
+        lines = smtlib_code.split('\n')
+        # Find first non-comment, non-empty line
+        first_code_line_idx = 0
+        for i, line in enumerate(lines):
+            stripped = line.strip()
+            if stripped and not stripped.startswith(';;'):
+                first_code_line_idx = i
+                break
+
+        # Reconstruct code starting from first non-comment line
+        if first_code_line_idx > 0:
+            smtlib_code = '\n'.join(lines[first_code_line_idx:])
+
+        # Strip any remaining leading/trailing whitespace
+        smtlib_code = smtlib_code.strip()
+
+        return smtlib_code
 
     except Exception as e:
         raise Exception(f"Failed to fix SMT-LIB code: {str(e)}")
@@ -369,6 +1075,11 @@ if st.button("▶️ Run cvc5", type="primary", use_container_width=True):
                     st.success("✓ Generated SMT-LIB code")
                     with st.expander("📄 View Generated SMT-LIB"):
                         st.code(smtlib_code, language="lisp")
+
+                    # Show phase analysis if available
+                    if 'last_phase_outputs' in st.session_state and st.session_state['last_phase_outputs']:
+                        with st.expander("🔍 View Detailed Phase Analysis"):
+                            st.markdown(st.session_state['last_phase_outputs'])
             else:
                 smtlib_code = user_input.strip()
 
@@ -409,7 +1120,13 @@ if st.button("▶️ Run cvc5", type="primary", use_container_width=True):
 
                         try:
                             with st.spinner(f"🔧 AI Hive® is fixing the SMT-LIB code (attempt {attempt}/{MAX_ATTEMPTS})..."):
-                                fixed_code = fix_smtlib_with_error(result["error"])
+                                # Pass original problem and phase outputs for better context
+                                phase_outputs = st.session_state.get('last_phase_outputs', None)
+                                fixed_code = fix_smtlib_with_error(
+                                    result["error"],
+                                    user_input,
+                                    phase_outputs
+                                )
 
                             # Show what was corrected
                             correction_history.append({
@@ -521,7 +1238,7 @@ if st.button("▶️ Run cvc5", type="primary", use_container_width=True):
                         st.text(final_stderr)
 
                 # Download buttons
-                col1, col2 = st.columns(2)
+                col1, col2, col3 = st.columns(3)
                 with col1:
                     st.download_button(
                         "Download SMT-LIB code",
@@ -536,9 +1253,76 @@ if st.button("▶️ Run cvc5", type="primary", use_container_width=True):
                         file_name="output.txt",
                         mime="text/plain"
                     )
+                with col3:
+                    # Generate PDF Report
+                    import time
+                    query_id = f"query_{int(time.time())}"
+
+                    # Get explanation if available
+                    explanation_text = None
+                    if not final_result["has_error"]:
+                        explanation_text = explanation if 'explanation' in locals() else None
+
+                    # Get phase outputs if available
+                    phase_outputs_text = st.session_state.get('last_phase_outputs', None)
+
+                    # Generate PDF
+                    try:
+                        pdf_bytes = generate_pdf_report(
+                            query_id=query_id,
+                            user_input=user_input,
+                            smtlib_code=smtlib_code,
+                            status=final_result["status"],
+                            cvc5_stdout=final_stdout,
+                            cvc5_stderr=final_stderr if final_stderr else "",
+                            wall_ms=final_wall_ms,
+                            model=final_result.get("model"),
+                            phase_outputs=phase_outputs_text,
+                            human_explanation=explanation_text,
+                            correction_history=correction_history
+                        )
+
+                        # Save to reports directory
+                        from pathlib import Path
+                        reports_dir = Path("reports")
+                        reports_dir.mkdir(exist_ok=True)
+                        pdf_path = reports_dir / f"{query_id}.pdf"
+
+                        with open(pdf_path, 'wb') as f:
+                            f.write(pdf_bytes)
+
+                        # Download button
+                        st.download_button(
+                            "📄 Download PDF Report",
+                            pdf_bytes,
+                            file_name=f"{query_id}.pdf",
+                            mime="application/pdf"
+                        )
+
+                        # Success message
+                        st.success(f"✅ PDF report saved to: {pdf_path}")
+
+                    except Exception as pdf_error:
+                        st.error(f"⚠️ PDF generation failed: {pdf_error}")
 
         except Exception as e:
             st.error(f"❌ Error: {e}")
+
+            # Show diagnostic information if available
+            if 'last_conversion_error' in st.session_state:
+                with st.expander("🔍 Diagnostic Information"):
+                    error_info = st.session_state['last_conversion_error']
+                    st.markdown("**Extracted Code (first 500 chars):**")
+                    st.code(error_info.get('extracted_code', 'N/A'), language="lisp")
+                    st.markdown("**Full AI Response (first 2000 chars):**")
+                    st.text(error_info.get('full_response', 'N/A'))
+                    st.markdown("**Troubleshooting:**")
+                    st.markdown("""
+                    - The AI may not have followed the structured prompt format
+                    - External file references may not have been loaded
+                    - Try simplifying the problem or providing explicit data
+                    - Check if the problem requires external files to be included directly
+                    """)
 
 # Help section
 with st.expander("ℹ️ SMT-LIB Format Help"):
