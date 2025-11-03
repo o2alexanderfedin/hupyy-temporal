@@ -132,47 +132,131 @@ def generate_pdf_report(
     """
     from fpdf import FPDF
     from datetime import datetime
+    import sys
 
-    # Sanitize all text inputs
-    user_input = sanitize_for_pdf(user_input)
-    smtlib_code = sanitize_for_pdf(smtlib_code)
-    cvc5_stdout = sanitize_for_pdf(cvc5_stdout)
+    # DETAILED LOGGING - START
+    print(f"[PDF DEBUG] ========== PDF Generation Started ==========", file=sys.stderr)
+    print(f"[PDF DEBUG] query_id: {query_id}", file=sys.stderr)
+    print(f"[PDF DEBUG] user_input type: {type(user_input)}, len: {len(user_input) if user_input else 0}", file=sys.stderr)
+    print(f"[PDF DEBUG] smtlib_code type: {type(smtlib_code)}, len: {len(smtlib_code) if smtlib_code else 0}", file=sys.stderr)
+    print(f"[PDF DEBUG] status: {status}", file=sys.stderr)
+    print(f"[PDF DEBUG] cvc5_stdout type: {type(cvc5_stdout)}, len: {len(cvc5_stdout) if cvc5_stdout else 0}", file=sys.stderr)
+    print(f"[PDF DEBUG] cvc5_stderr type: {type(cvc5_stderr)}, len: {len(cvc5_stderr) if cvc5_stderr else 0}", file=sys.stderr)
+    print(f"[PDF DEBUG] model type: {type(model)}, len: {len(model) if model else 0}", file=sys.stderr)
+    print(f"[PDF DEBUG] phase_outputs type: {type(phase_outputs)}, len: {len(phase_outputs) if phase_outputs else 0}", file=sys.stderr)
+    print(f"[PDF DEBUG] human_explanation type: {type(human_explanation)}, len: {len(human_explanation) if human_explanation else 0}", file=sys.stderr)
+    print(f"[PDF DEBUG] correction_history type: {type(correction_history)}", file=sys.stderr)
+
+    # Sanitize all text inputs with error handling
+    print(f"[PDF DEBUG] Starting sanitization of user_input...", file=sys.stderr)
+    try:
+        user_input = sanitize_for_pdf(user_input)
+        print(f"[PDF DEBUG] user_input sanitized OK, new len: {len(user_input)}", file=sys.stderr)
+    except Exception as e:
+        print(f"[PDF DEBUG] ERROR sanitizing user_input: {e}", file=sys.stderr)
+        raise Exception(f"Error sanitizing user_input (type: {type(user_input)}): {e}")
+
+    print(f"[PDF DEBUG] Starting sanitization of smtlib_code...", file=sys.stderr)
+    try:
+        smtlib_code = sanitize_for_pdf(smtlib_code)
+        print(f"[PDF DEBUG] smtlib_code sanitized OK, new len: {len(smtlib_code)}", file=sys.stderr)
+    except Exception as e:
+        print(f"[PDF DEBUG] ERROR sanitizing smtlib_code: {e}", file=sys.stderr)
+        raise Exception(f"Error sanitizing smtlib_code (type: {type(smtlib_code)}): {e}")
+
+    print(f"[PDF DEBUG] Starting sanitization of cvc5_stdout...", file=sys.stderr)
+    try:
+        cvc5_stdout = sanitize_for_pdf(cvc5_stdout)
+        print(f"[PDF DEBUG] cvc5_stdout sanitized OK, new len: {len(cvc5_stdout)}", file=sys.stderr)
+    except Exception as e:
+        print(f"[PDF DEBUG] ERROR sanitizing cvc5_stdout: {e}", file=sys.stderr)
+        raise Exception(f"Error sanitizing cvc5_stdout (type: {type(cvc5_stdout)}): {e}")
+
+    print(f"[PDF DEBUG] Starting sanitization of cvc5_stderr...", file=sys.stderr)
     cvc5_stderr = sanitize_for_pdf(cvc5_stderr) if cvc5_stderr else ""
+    print(f"[PDF DEBUG] cvc5_stderr sanitized OK, new len: {len(cvc5_stderr)}", file=sys.stderr)
+
     if model:
-        model = sanitize_for_pdf(model)
+        print(f"[PDF DEBUG] Starting sanitization of model...", file=sys.stderr)
+        try:
+            model = sanitize_for_pdf(model)
+            print(f"[PDF DEBUG] model sanitized OK, new len: {len(model)}", file=sys.stderr)
+        except Exception as e:
+            print(f"[PDF DEBUG] ERROR sanitizing model: {e}", file=sys.stderr)
+            raise Exception(f"Error sanitizing model (type: {type(model)}): {e}")
+
     if phase_outputs:
-        phase_outputs = sanitize_for_pdf(phase_outputs)
+        print(f"[PDF DEBUG] Starting sanitization of phase_outputs...", file=sys.stderr)
+        try:
+            phase_outputs = sanitize_for_pdf(phase_outputs)
+            print(f"[PDF DEBUG] phase_outputs sanitized OK, new len: {len(phase_outputs)}", file=sys.stderr)
+        except Exception as e:
+            print(f"[PDF DEBUG] ERROR sanitizing phase_outputs: {e}", file=sys.stderr)
+            raise Exception(f"Error sanitizing phase_outputs (type: {type(phase_outputs)}): {e}")
+
     if human_explanation:
-        human_explanation = sanitize_for_pdf(human_explanation)
+        print(f"[PDF DEBUG] Starting sanitization of human_explanation...", file=sys.stderr)
+        try:
+            human_explanation = sanitize_for_pdf(human_explanation)
+            print(f"[PDF DEBUG] human_explanation sanitized OK, new len: {len(human_explanation)}", file=sys.stderr)
+        except Exception as e:
+            print(f"[PDF DEBUG] ERROR sanitizing human_explanation: {e}", file=sys.stderr)
+            raise Exception(f"Error sanitizing human_explanation (type: {type(human_explanation)}): {e}")
 
     # Create PDF object
-    pdf = FPDF()
-    pdf.add_page()
-    pdf.set_auto_page_break(auto=True, margin=15)
+    print(f"[PDF DEBUG] All sanitization complete, creating PDF object...", file=sys.stderr)
+    try:
+        pdf = FPDF()
+        print(f"[PDF DEBUG] FPDF object created", file=sys.stderr)
+        pdf.add_page()
+        print(f"[PDF DEBUG] Page added", file=sys.stderr)
+        pdf.set_auto_page_break(auto=True, margin=15)
+        print(f"[PDF DEBUG] Auto page break set", file=sys.stderr)
+    except Exception as e:
+        print(f"[PDF DEBUG] ERROR creating PDF object: {e}", file=sys.stderr)
+        raise
 
     # Title
-    pdf.set_font("Helvetica", "B", 20)
-    pdf.cell(0, 10, "HUPYY TEMPORAL - SMT-LIB VERIFICATION REPORT", ln=True, align="C")
-    pdf.ln(5)
+    print(f"[PDF DEBUG] Adding title section...", file=sys.stderr)
+    try:
+        pdf.set_font("Helvetica", "B", 20)
+        pdf.cell(0, 10, "HUPYY TEMPORAL - SMT-LIB VERIFICATION REPORT", ln=True, align="C")
+        pdf.ln(5)
+        print(f"[PDF DEBUG] Title section added OK", file=sys.stderr)
+    except Exception as e:
+        print(f"[PDF DEBUG] ERROR adding title: {e}", file=sys.stderr)
+        raise
 
     # Metadata
-    pdf.set_font("Helvetica", "", 10)
-    pdf.cell(0, 6, f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", ln=True)
-    pdf.cell(0, 6, f"Query ID: {query_id}", ln=True)
-    pdf.cell(0, 6, f"Status: {status.upper()}", ln=True)
-    pdf.cell(0, 6, f"Execution Time: {wall_ms} ms", ln=True)
-    pdf.ln(10)
+    print(f"[PDF DEBUG] Adding metadata section...", file=sys.stderr)
+    try:
+        pdf.set_font("Helvetica", "", 10)
+        pdf.cell(0, 6, f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", ln=True)
+        pdf.cell(0, 6, f"Query ID: {query_id}", ln=True)
+        pdf.cell(0, 6, f"Status: {status.upper()}", ln=True)
+        pdf.cell(0, 6, f"Execution Time: {wall_ms} ms", ln=True)
+        pdf.ln(10)
+        print(f"[PDF DEBUG] Metadata section added OK", file=sys.stderr)
+    except Exception as e:
+        print(f"[PDF DEBUG] ERROR adding metadata: {e}", file=sys.stderr)
+        raise
 
     # Section 1: Problem Statement
-    pdf.set_font("Helvetica", "B", 14)
-    pdf.cell(0, 8, "1. PROBLEM STATEMENT", ln=True)
-    pdf.set_font("Helvetica", "", 10)
-    pdf.ln(2)
+    print(f"[PDF DEBUG] Adding problem statement section...", file=sys.stderr)
+    try:
+        pdf.set_font("Helvetica", "B", 14)
+        pdf.cell(0, 8, "1. PROBLEM STATEMENT", ln=True)
+        pdf.set_font("Helvetica", "", 10)
+        pdf.ln(2)
 
-    # Wrap long text
-    problem_text = user_input[:2000] if len(user_input) > 2000 else user_input
-    pdf.multi_cell(0, 5, problem_text)
-    pdf.ln(8)
+        # Wrap long text
+        problem_text = user_input[:2000] if len(user_input) > 2000 else user_input
+        pdf.multi_cell(0, 5, problem_text)
+        pdf.ln(8)
+        print(f"[PDF DEBUG] Problem statement section added OK", file=sys.stderr)
+    except Exception as e:
+        print(f"[PDF DEBUG] ERROR adding problem statement: {e}", file=sys.stderr)
+        raise
 
     # Section 2: Phase Analysis (if available)
     if phase_outputs:
@@ -291,12 +375,31 @@ def generate_pdf_report(
         pdf.multi_cell(0, 3.5, stderr_text)
 
     # Footer
-    pdf.ln(10)
-    pdf.set_font("Helvetica", "I", 8)
-    pdf.cell(0, 6, "Generated by Hupyy Temporal - AI Hive Powered SMT Verification", ln=True, align="C")
+    print(f"[PDF DEBUG] Adding footer...", file=sys.stderr)
+    try:
+        pdf.ln(10)
+        pdf.set_font("Helvetica", "I", 8)
+        pdf.cell(0, 6, "Generated by Hupyy Temporal - AI Hive Powered SMT Verification", ln=True, align="C")
+        print(f"[PDF DEBUG] Footer added OK", file=sys.stderr)
+    except Exception as e:
+        print(f"[PDF DEBUG] ERROR adding footer: {e}", file=sys.stderr)
+        raise
 
     # Return PDF as bytes
-    return pdf.output(dest='S').encode('latin1')
+    print(f"[PDF DEBUG] Generating final PDF output...", file=sys.stderr)
+    try:
+        pdf_output = pdf.output(dest='S')
+        print(f"[PDF DEBUG] PDF output generated, type: {type(pdf_output)}, len: {len(pdf_output) if pdf_output else 0}", file=sys.stderr)
+
+        pdf_bytes = pdf_output.encode('latin1')
+        print(f"[PDF DEBUG] PDF encoded to bytes, len: {len(pdf_bytes)}", file=sys.stderr)
+        print(f"[PDF DEBUG] ========== PDF Generation Complete ==========", file=sys.stderr)
+        return pdf_bytes
+    except Exception as e:
+        print(f"[PDF DEBUG] ERROR generating final PDF output: {e}", file=sys.stderr)
+        print(f"[PDF DEBUG] Error type: {type(e).__name__}", file=sys.stderr)
+        print(f"[PDF DEBUG] Error details: {str(e)}", file=sys.stderr)
+        raise
 
 st.markdown("""
 This page implements the **SMT-LIB Direct Generation** approach from the multi-theory documentation.
@@ -358,7 +461,28 @@ def load_external_files(text: str) -> str:
                         loaded_content.append(f"\n--- FILE: {file_path.name} (FAILED TO LOAD: {e}) ---\n")
 
     if loaded_content:
-        return text + "\n" + "".join(loaded_content)
+        # Structure the output to make it clear these are INPUT DATA files
+        enhanced = f"""{text}
+
+═══════════════════════════════════════════════════════════════════════════════
+📁 REFERENCE DATA FILES (INPUT DATA - NOT THE OUTPUT FORMAT!)
+═══════════════════════════════════════════════════════════════════════════════
+
+The following files contain INPUT DATA that must be analyzed and converted to
+SMT-LIB v2.7 format. These are NOT examples of the desired output format.
+
+You MUST:
+1. Parse and understand the data in these files
+2. Follow the 5-phase structured conversion process
+3. Generate proper SMT-LIB v2.7 code (NOT the format shown in these files)
+
+{"".join(loaded_content)}
+
+═══════════════════════════════════════════════════════════════════════════════
+END OF REFERENCE DATA FILES
+═══════════════════════════════════════════════════════════════════════════════
+"""
+        return enhanced
     else:
         return text
 
@@ -369,6 +493,15 @@ def convert_to_smtlib(text: str) -> str:
     enhanced_text = load_external_files(text)
 
     prompt = f"""You are a formal verification expert converting problems to SMT-LIB v2.7 format.
+
+⚠️⚠️⚠️ CRITICAL INSTRUCTIONS - READ CAREFULLY ⚠️⚠️⚠️
+
+1. You MUST follow ALL 5 PHASES below in EXACT order
+2. You MUST produce ALL required deliverables for EACH phase
+3. If the problem includes reference data files, those are INPUT DATA ONLY
+4. Any formal logic notation in input files is NOT the desired output format
+5. You MUST generate proper SMT-LIB v2.7 syntax, NOT the format from input files
+6. Your final output MUST include: (set-logic ...), declarations, assertions, (check-sat)
 
 **CRITICAL: You MUST follow ALL 5 PHASES in order and produce ALL required deliverables before generating code.**
 
@@ -432,7 +565,16 @@ PHASE 2: DOMAIN MODELING
 
 ### Query
 **Question:** [what exactly is being verified?]
-**Approach:** [direct-sat / negation-based-proof / other]
+**Approach:** [Choose ONE and explain encoding:]
+  - **negation-based-proof**: Prove X is false by showing (not X) is unsatisfiable
+    → Encoding: (assert X) then (check-sat) → UNSAT means X is provably false
+    → Use for: "Did X happen?" "Was X violated?" (proving absence/failure)
+  - **direct-sat**: Find cases where X is true
+    → Encoding: (assert (not X)) then (check-sat) → SAT means X can be false
+    → Use for: "Can X be satisfied?" "Is X possible?" (finding examples)
+
+**Selected Approach:** [negation-based-proof / direct-sat]
+**Encoding Plan:** [Specifically: will you assert the property itself, or (not property)?]
 ```
 
 ═══════════════════════════════════════════════════════════════════════════════
@@ -503,6 +645,60 @@ PHASE 4: SMT-LIB ENCODING
 - Datatypes: use (declare-datatype ...) with match expressions
 - Latest theory semantics
 
+**CRITICAL: UNINTERPRETED FUNCTIONS REQUIRE LINKING CONSTRAINTS**
+When you declare uninterpreted functions (e.g., HasProperty, IsValid, CanPerform), the solver
+will assign ARBITRARY values unless you add constraints linking them to other variables.
+This leads to models that are SMT-valid but violate real-world logic.
+
+**UNIVERSAL PRINCIPLE:**
+For every uninterpreted function, ask: "What conditions must hold for this to be true?"
+Then encode those conditions as implications (=>) constraints.
+
+**GENERIC PATTERNS TO ENCODE:**
+
+1. **Existence Dependencies:**
+   If a property requires existence, add: `(=> (Property x) (Exists x))`
+
+2. **Hierarchical Dependencies:**
+   If Y requires X, add: `(=> Y X)`
+
+3. **Mutual Exclusion:**
+   If states exclude each other, add: `(=> StateA (not StateB))`
+
+4. **Preconditions:**
+   If an action requires preconditions, add: `(=> (Action args) (and precond1 precond2 ...))`
+
+**Example of WRONG encoding (missing links):**
+```smt2
+(assert (not exists_x))                      ; X doesn't exist
+(declare-fun Property (Entity) Bool)         ; Uninterpreted function!
+(assert (= result (Property x)))             ; BUG: No linking constraint!
+; Solver can make Property(x) = true even when exists_x = false
+; Result: Logical contradiction (X has property but doesn't exist)
+```
+
+**Example of CORRECT encoding (with links):**
+```smt2
+(assert (not exists_x))                      ; X doesn't exist
+(declare-fun Property (Entity) Bool)         ; Uninterpreted function
+(assert (= result (Property x)))
+; FIX: Add linking constraint - property requires existence
+(assert (=> (Property x) exists_x))          ; If X has property, X must exist
+; OR equivalently for results:
+(assert (=> result exists_x))                ; If result true, X must exist
+```
+
+**More Generic Examples:**
+
+Mathematical: If x is prime, x must be > 1:
+  `(assert (=> (IsPrime x) (> x 1)))`
+
+Scheduling: If task scheduled, resource must be available:
+  `(assert (=> (Scheduled task time) (Available resource time)))`
+
+Graph: If edge exists, both vertices must exist:
+  `(assert (=> (Edge u v) (and (Vertex u) (Vertex v))))`
+
 **MANDATORY OUTPUT:**
 ```smt2
 ;; ================================================================
@@ -528,7 +724,14 @@ PHASE 4: SMT-LIB ENCODING
 
 ;; ========== Query ==========
 ;; Query: [question from Phase 2]
-;; Approach: [approach from Phase 2]
+;; Approach: [approach from Phase 2 - negation-based-proof OR direct-sat]
+;; Encoding: [encoding plan from Phase 2]
+;;
+;; CRITICAL: Your assertion MUST match the encoding plan from Phase 2!
+;; - If Phase 2 says "assert the property itself" → (assert property)
+;; - If Phase 2 says "assert (not property)" → (assert (not property))
+;;
+(assert ...)  ; ← Must match Phase 2 encoding plan!
 (check-sat)
 (get-model)
 ```
@@ -543,6 +746,7 @@ Before finalizing, verify:
     ☐ Every entity from Phase 2 is declared
     ☐ Every constraint from Phase 2 is encoded
     ☐ Query matches Phase 2 question
+    ☐ Query encoding matches Phase 2 encoding plan (check if assert or assert (not ...))
     ☐ All external references integrated
 
 5.2 CORRECTNESS:
@@ -558,6 +762,15 @@ Before finalizing, verify:
     ☐ If using arrays → logic includes A or ALL
     ☐ All operators exist in selected logic
 
+5.4 UNINTERPRETED FUNCTION LINKING:
+    ☐ Every uninterpreted function has linking constraints expressing real-world dependencies
+    ☐ For each uninterpreted predicate P(x), ask: "What must be true for P(x) to hold?"
+    ☐ If result depends on precondition, add (=> result precondition) constraint
+    ☐ Existence dependencies: (=> (Property x) (Exists x))
+    ☐ Hierarchical dependencies: (=> DerivedProperty BaseProperty)
+    ☐ Mutual exclusions: (=> StateA (not StateB))
+    ☐ No uninterpreted function should yield logically impossible models
+
 **MANDATORY OUTPUT:**
 ```markdown
 ## PHASE 5: VERIFICATION
@@ -566,6 +779,7 @@ Before finalizing, verify:
 - Entities declared: [count] / [count from Phase 2] ✓
 - Constraints encoded: [count] / [count from Phase 2] ✓
 - Query encoded: [YES] ✓
+- Query encoding consistency: [Phase 2 says "assert X" and code has "assert X" ✓ OR mismatch ✗]
 - External refs: [status] ✓
 
 ### Correctness Check
@@ -573,6 +787,7 @@ Before finalizing, verify:
 - No undeclared symbols: ✓
 - Type consistency: ✓
 - Syntax valid: ✓
+- Uninterpreted functions have linking constraints: ✓
 
 ### Issues Found
 [List any issues, or "None"]
@@ -615,6 +830,16 @@ USER'S PROBLEM
 </PROBLEM-DESCRIPTION>
 
 BEGIN PHASE 1 NOW."""
+
+    # DEBUG: Store prompt details for inspection
+    import streamlit as st
+    st.session_state['debug_prompt_info'] = {
+        'original_text_length': len(text),
+        'enhanced_text_length': len(enhanced_text),
+        'prompt_total_length': len(prompt),
+        'files_loaded': 'YES' if len(enhanced_text) > len(text) else 'NO',
+        'size_difference': len(enhanced_text) - len(text)
+    }
 
     try:
         # Call AI Hive® CLI via stdin (increased timeout for 5-phase processing)
@@ -1323,6 +1548,26 @@ if st.button("▶️ Run cvc5", type="primary", use_container_width=True):
                     - Try simplifying the problem or providing explicit data
                     - Check if the problem requires external files to be included directly
                     """)
+
+            # Show debug prompt information if available
+            if 'debug_prompt_info' in st.session_state:
+                with st.expander("🐛 Debug: Prompt Information"):
+                    debug_info = st.session_state['debug_prompt_info']
+                    st.json(debug_info)
+
+                    # Add interpretation
+                    st.markdown("**Interpretation:**")
+                    if debug_info.get('files_loaded') == 'YES':
+                        st.success(f"✅ External files loaded: {debug_info.get('size_difference', 0)} characters added")
+                    else:
+                        st.warning("⚠️ No external files were loaded")
+
+                    if debug_info.get('prompt_total_length', 0) > 100000:
+                        st.error(f"❌ Prompt is very large ({debug_info.get('prompt_total_length', 0)} chars) - may exceed AI limits!")
+                    elif debug_info.get('prompt_total_length', 0) > 50000:
+                        st.warning(f"⚠️ Prompt is large ({debug_info.get('prompt_total_length', 0)} chars) - might cause issues")
+                    else:
+                        st.info(f"Prompt size: {debug_info.get('prompt_total_length', 0)} characters")
 
 # Help section
 with st.expander("ℹ️ SMT-LIB Format Help"):
