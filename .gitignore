@@ -32,3 +32,6 @@ eval/test.pid
 # Keep baselines and llm_runs
 !eval/baselines.md
 !eval/llm_runs.json
+
+# Playwright test results
+test-results/
