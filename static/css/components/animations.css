@@ -1,7 +1,387 @@
 /* ============================================
    ANIMATIONS & TRANSITIONS
-   Will be implemented in TASK-007
-   Reference: docs/ui-ux/ui-ux-spec.md lines 51-56, 67-71
+   TASK-007 Implementation
+   Based on docs/ui-ux/ui-ux-spec.md lines 51-56, 67-71
    ============================================ */
 
-/* Placeholder for TASK-007 implementation */
+/* ============================================
+   GLOBAL TRANSITION DEFAULTS
+   Spec line 56: "buttery smooth, no harsh motion"
+   ============================================ */
+
+* {
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important; /* Ease-in-out */
+}
+
+/* ============================================
+   SCREEN TRANSITIONS
+   Spec line 52: fade/cross-dissolve (300ms ease-in-out)
+   ============================================ */
+
+.page-transition-enter {
+    opacity: 0 !important;
+    transform: scale(0.98) !important;
+}
+
+.page-transition-enter-active {
+    opacity: 1 !important;
+    transform: scale(1) !important;
+    transition: opacity 300ms ease-in-out, transform 300ms ease-in-out !important;
+}
+
+.page-transition-exit {
+    opacity: 1 !important;
+}
+
+.page-transition-exit-active {
+    opacity: 0 !important;
+    transition: opacity 300ms ease-in-out !important;
+}
+
+/* Fade in animation for new content */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.fade-in {
+    animation: fadeIn 300ms ease-in-out !important;
+}
+
+/* ============================================
+   BUTTON ANIMATIONS
+   Spec line 53: responsive scaling + elevation
+   Spec line 70: brightness +8%, glow intensity +4%
+   ============================================ */
+
+button,
+.hupyy-button-primary,
+.hupyy-button-secondary,
+.stButton > button {
+    /* Smooth all property transitions - 200ms */
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+/* Button hover - Spec line 70: brightness +8%, glow +4% */
+button:hover,
+.hupyy-button-primary:hover,
+.stButton > button:hover {
+    filter: brightness(1.08) !important;
+    box-shadow:
+        0 3px 10px rgba(1, 118, 211, 0.19),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+    transform: translateY(-1px) !important;
+}
+
+/* Button press animation */
+@keyframes buttonPress {
+    0% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(1px);
+    }
+    100% {
+        transform: translateY(0);
+    }
+}
+
+button:active,
+.stButton > button:active {
+    animation: buttonPress 0.1s ease-in-out !important;
+    transform: translateY(1px) !important;
+}
+
+/* ============================================
+   INPUT FOCUS ANIMATION
+   Spec line 54: blue halo glow
+   ============================================ */
+
+input, textarea, select,
+.stTextArea textarea,
+.stTextInput input {
+    transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out !important;
+}
+
+/* Halo grows smoothly on focus */
+input:focus, textarea:focus,
+.stTextArea textarea:focus,
+.stTextInput input:focus {
+    animation: haloGrow 0.3s ease-out !important;
+}
+
+@keyframes haloGrow {
+    from {
+        box-shadow:
+            inset 0 2px 4px rgba(0, 0, 0, 0.06),
+            0 0 0 0 rgba(1, 118, 211, 0);
+    }
+    to {
+        box-shadow:
+            inset 0 2px 4px rgba(0, 0, 0, 0.06),
+            0 0 0 4px rgba(1, 118, 211, 0.15);
+    }
+}
+
+/* ============================================
+   PROOF PANEL ANIMATION
+   Spec line 55: slide + fade
+   Spec line 69: 250ms ease-in-out
+   ============================================ */
+
+.proof-panel-enter {
+    max-height: 0 !important;
+    opacity: 0 !important;
+    overflow: hidden !important;
+}
+
+.proof-panel-enter-active {
+    max-height: 1000px !important;
+    opacity: 1 !important;
+    transition: max-height 250ms ease-in-out, opacity 250ms ease-in-out !important;
+}
+
+.proof-panel-exit {
+    max-height: 1000px !important;
+    opacity: 1 !important;
+}
+
+.proof-panel-exit-active {
+    max-height: 0 !important;
+    opacity: 0 !important;
+    overflow: hidden !important;
+    transition: max-height 250ms ease-in-out, opacity 250ms ease-in-out !important;
+}
+
+/* Slide down animation for expandable sections */
+@keyframes slideDown {
+    from {
+        max-height: 0;
+        opacity: 0;
+    }
+    to {
+        max-height: 1000px;
+        opacity: 1;
+    }
+}
+
+.slide-down {
+    animation: slideDown 250ms ease-in-out !important;
+}
+
+/* Streamlit expander animation enhancement */
+.streamlit-expanderHeader {
+    transition: background-color 0.2s ease-in-out !important;
+}
+
+.streamlit-expanderContent {
+    animation: slideDown 250ms ease-in-out !important;
+}
+
+/* ============================================
+   PROCESSING ANIMATION
+   Spec line 68: pulsing text opacity 0.5 → 1 → 0.5, 1.5s loop
+   ============================================ */
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 0.5;
+    }
+    50% {
+        opacity: 1;
+    }
+}
+
+.processing-pulse {
+    animation: pulse 1.5s ease-in-out infinite !important;
+}
+
+/* Processing text with specific styling */
+.processing-text {
+    /* Spec line 34: pulsing soft blue #2E95FF */
+    color: #2E95FF !important;
+    animation: pulse 1.5s ease-in-out infinite !important;
+}
+
+/* Streamlit spinner enhancement */
+.stSpinner > div {
+    animation: pulse 1.5s ease-in-out infinite !important;
+}
+
+/* ============================================
+   SHIMMER ANIMATION (for loading states)
+   Spec line 36: "subtle shimmer animation across background"
+   ============================================ */
+
+@keyframes shimmer {
+    0% {
+        background-position: -1000px 0;
+    }
+    100% {
+        background-position: 1000px 0;
+    }
+}
+
+.shimmer {
+    background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(255, 255, 255, 0.2),
+        transparent
+    ) !important;
+    background-size: 1000px 100% !important;
+    animation: shimmer 2s linear infinite !important;
+}
+
+/* ============================================
+   RESULT CARD ENTRANCE
+   Smooth appearance animation
+   ============================================ */
+
+@keyframes slideUpFade {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.result-card-enter,
+.hupyy-result-card {
+    animation: slideUpFade 400ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+/* ============================================
+   HOVER EFFECTS - ENSURE SMOOTH
+   Spec line 71: transition fade between screens 300ms
+   ============================================ */
+
+/* Card hover (subtle lift) */
+.hupyy-card:hover,
+.hupyy-result-card:hover {
+    transform: translateY(-2px) !important;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12) !important;
+    transition: transform 0.2s ease-out, box-shadow 0.2s ease-out !important;
+}
+
+/* Link hover */
+a {
+    transition: color 0.2s ease-in-out, opacity 0.2s ease-in-out !important;
+}
+
+a:hover {
+    opacity: 0.8 !important;
+}
+
+/* ============================================
+   LOADING SPINNER
+   ============================================ */
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.spinner {
+    animation: spin 1s linear infinite !important;
+}
+
+/* ============================================
+   CHECKMARK ANIMATION (for success states)
+   ============================================ */
+
+@keyframes checkmarkAppear {
+    0% {
+        opacity: 0;
+        transform: scale(0.5) rotate(-45deg);
+    }
+    50% {
+        transform: scale(1.1) rotate(0deg);
+    }
+    100% {
+        opacity: 1;
+        transform: scale(1) rotate(0deg);
+    }
+}
+
+.checkmark-animate {
+    animation: checkmarkAppear 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55) !important;
+}
+
+/* ============================================
+   STAGGER ANIMATION (for lists)
+   ============================================ */
+
+@keyframes staggerIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.stagger-item {
+    animation: staggerIn 0.3s ease-out !important;
+}
+
+.stagger-item:nth-child(1) { animation-delay: 0ms !important; }
+.stagger-item:nth-child(2) { animation-delay: 50ms !important; }
+.stagger-item:nth-child(3) { animation-delay: 100ms !important; }
+.stagger-item:nth-child(4) { animation-delay: 150ms !important; }
+.stagger-item:nth-child(5) { animation-delay: 200ms !important; }
+
+/* ============================================
+   UTILITY CLASSES
+   ============================================ */
+
+/* Smooth all */
+.transition-smooth {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+/* Fast transition */
+.transition-fast {
+    transition: all 0.15s ease-in-out !important;
+}
+
+/* Slow transition */
+.transition-slow {
+    transition: all 0.5s ease-in-out !important;
+}
+
+/* Delay utilities */
+.delay-100 { transition-delay: 100ms !important; }
+.delay-200 { transition-delay: 200ms !important; }
+.delay-300 { transition-delay: 300ms !important; }
+
+/* ============================================
+   ACCESSIBILITY - REDUCE MOTION
+   Spec: respect user preferences
+   ============================================ */
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}
