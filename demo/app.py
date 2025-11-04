@@ -1322,16 +1322,21 @@ if 'last_result' in st.session_state:
 
                 # Generate PDF
                 generator = PDFReportGenerator()
-                pdf_path = generator.generate_report(report_data)
+                pdf_bytes = generator.generate(report_data)
+
+                # Save PDF to file
+                pdf_filename = f"{query_id}.pdf"
+                pdf_path = ROOT / "reports" / pdf_filename
+                with open(pdf_path, "wb") as pdf_file:
+                    pdf_file.write(pdf_bytes)
 
                 # Show download button
-                with open(pdf_path, "rb") as pdf_file:
-                    st.download_button(
-                        "📄 Download PDF Report",
-                        pdf_file.read(),
-                        file_name=f"hupyy_report_{query_id}.pdf",
-                        mime="application/pdf"
-                    )
+                st.download_button(
+                    "📄 Download PDF Report",
+                    pdf_bytes,
+                    file_name=f"hupyy_report_{query_id}.pdf",
+                    mime="application/pdf"
+                )
 
                 # Success message
                 st.success(f"✅ PDF report saved to: {pdf_path}")
