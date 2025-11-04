@@ -297,16 +297,61 @@ PHASE 2: DOMAIN MODELING
 
 ### Query
 **Question:** [what exactly is being verified?]
-**Approach:** [Choose ONE and explain encoding:]
-  - **negation-based-proof**: Prove X is false by showing (not X) is unsatisfiable
-    → Encoding: (assert X) then (check-sat) → UNSAT means X is provably false
-    → Use for: "Did X happen?" "Was X violated?" (proving absence/failure)
-  - **direct-sat**: Find cases where X is true
-    → Encoding: (assert (not X)) then (check-sat) → SAT means X can be false
-    → Use for: "Can X be satisfied?" "Is X possible?" (finding examples)
+**Question Type:** [Choose ONE:]
+  - **YES/NO VERIFICATION**: "Did X happen?", "Can X occur?", "Does X hold?", "Is X possible?"
+  - **FINDING EXAMPLES**: "Find values where X is true", "Give me a solution"
+  - **OPTIMIZATION**: "Maximize/minimize X"
 
-**Selected Approach:** [negation-based-proof / direct-sat]
-**Encoding Plan:** [Specifically: will you assert the property itself, or (not property)?]
+**CRITICAL - For YES/NO VERIFICATION Questions:**
+YES/NO questions MUST use the "assert-and-test" pattern:
+
+1. **Identify the target boolean variable** that represents the answer
+   - Example: "Can Marcus write?" → target variable: `can_write`
+   - Example: "Did E-6112 meet requirement?" → target variable: `meets_requirement`
+   - Example: "Is x > 0 possible?" → target variable: `condition_holds`
+
+2. **Define the target variable** based on all constraints
+   - Use (= target_var (and/or/not ...)) to express the logic
+   - Include ALL relevant conditions from the problem
+
+3. **Assert the target variable** to test if it can be true
+   - ALWAYS ADD: (assert target_var)
+   - This tests: "Can target_var = true satisfy all constraints?"
+
+4. **Interpret results:**
+   - SAT → "YES, it's possible/true" (solver found target_var = true)
+   - UNSAT → "NO, it's impossible/false" (target_var = true contradicts constraints)
+
+**Example Pattern (CORRECT):**
+```smt
+;; Define what we're testing
+(declare-const can_perform_action Bool)
+(assert (= can_perform_action (and precondition1 precondition2 (not blocker))))
+
+;; CRITICAL: Assert that we want to test if it's possible
+(assert can_perform_action)
+
+(check-sat)
+;; SAT → YES, action can be performed
+;; UNSAT → NO, action cannot be performed
+```
+
+**WRONG Pattern (DO NOT DO THIS):**
+```smt
+;; Defines the logic but doesn't assert what to test
+(declare-const can_perform_action Bool)
+(assert (= can_perform_action (and precondition1 precondition2 (not blocker))))
+;; BUG: Missing (assert can_perform_action) !!!
+(check-sat)
+;; Result: SAT with can_perform_action=false (confusing!)
+```
+
+**Selected Approach:** [assert-and-test / find-examples / optimize]
+**Target Variable:** [name of the boolean variable representing the answer to the YES/NO question]
+**Encoding Plan:**
+  - Define [target_variable] = [logical expression]
+  - Assert [target_variable] to test if it can be true
+  - Interpret: SAT = YES, UNSAT = NO
 ```
 
 ═══════════════════════════════════════════════════════════════════════════════
@@ -478,14 +523,20 @@ Graph: If edge exists, both vertices must exist:
 
 ;; ========== Query ==========
 ;; Query: [question from Phase 2]
-;; Approach: [approach from Phase 2 - negation-based-proof OR direct-sat]
-;; Encoding: [encoding plan from Phase 2]
+;; Approach: [approach from Phase 2]
+;; Target Variable: [target variable from Phase 2]
 ;;
-;; CRITICAL: Your assertion MUST match the encoding plan from Phase 2!
-;; - If Phase 2 says "assert the property itself" → (assert property)
-;; - If Phase 2 says "assert (not property)" → (assert (not property))
+;; CRITICAL FOR YES/NO QUESTIONS - You MUST assert the target variable!
 ;;
-(assert ...)  ; ← Must match Phase 2 encoding plan!
+;; Step 1: Define the target variable (already done in constraints above)
+;; Step 2: Assert it to test if it can be true (DO THIS NOW):
+;;
+(assert [target_variable])  ; ← REQUIRED for YES/NO questions!
+;;
+;; Interpretation:
+;; - SAT → YES, [target_variable] can be true
+;; - UNSAT → NO, [target_variable] cannot be true (contradicts constraints)
+;;
 (check-sat)
 (get-model)
 ```
@@ -500,7 +551,10 @@ Before finalizing, verify:
     ☐ Every entity from Phase 2 is declared
     ☐ Every constraint from Phase 2 is encoded
     ☐ Query matches Phase 2 question
-    ☐ Query encoding matches Phase 2 encoding plan (check if assert or assert (not ...))
+    ☐ **CRITICAL**: For YES/NO questions, target variable from Phase 2 is asserted
+       - Check: Does SMT-LIB code include "(assert [target_variable])"?
+       - If missing → ADD IT NOW before (check-sat)
+    ☐ Query encoding matches Phase 2 encoding plan
     ☐ All external references integrated
 
 5.2 DATA EXTRACTION AUDIT (for verification queries):
