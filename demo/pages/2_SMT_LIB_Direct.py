@@ -25,6 +25,42 @@ AVAILABLE_MODELS = {
     "opus": "Opus (Most Capable 🧠)"
 }
 
+# User preferences file
+PREFERENCES_FILE = ROOT / "config" / "user_preferences.json"
+
+def load_preferences() -> dict:
+    """Load user preferences from JSON file."""
+    try:
+        if PREFERENCES_FILE.exists():
+            with open(PREFERENCES_FILE, 'r') as f:
+                return json.load(f)
+    except Exception:
+        pass
+    # Return defaults
+    return {
+        "model": DEFAULT_MODEL,
+        "use_claude_conversion": False,
+        "auto_fix_errors": True
+    }
+
+def save_preferences(prefs: dict) -> None:
+    """Save user preferences to JSON file."""
+    try:
+        PREFERENCES_FILE.parent.mkdir(parents=True, exist_ok=True)
+        with open(PREFERENCES_FILE, 'w') as f:
+            json.dump(prefs, f, indent=2)
+    except Exception:
+        pass  # Silently fail if can't save
+
+# Load preferences
+if 'preferences' not in st.session_state:
+    st.session_state.preferences = load_preferences()
+
+def update_preference(key: str, value):
+    """Update a preference and save to disk."""
+    st.session_state.preferences[key] = value
+    save_preferences(st.session_state.preferences)
+
 st.title("🔧 SMT-LIB Direct Mode")
 
 def validate_phase_completeness(response: str) -> dict:
@@ -534,6 +570,19 @@ PHASE 1: PROBLEM COMPREHENSION
 **Reference Status:** [all-loaded / partial / failed / none]
 **Complete Problem:** [merged problem text with all references]
 **Complexity:** [simple/medium/complex/very-complex]
+
+**Data Inventory (CRITICAL for verification queries):**
+If problem references data files, logs, databases, or records:
+- **Data Sources Available:** [list all: employee DB, access logs, 2FA logs, policies, etc.]
+- **Query Type:** [verification-from-data / possibility-exploration / proof-of-property]
+  * verification-from-data: "Did X happen?" → Must extract facts from data
+  * possibility-exploration: "Can X happen?" → May omit specific data values
+  * proof-of-property: "X always holds" → Assert property, expect UNSAT for violations
+- **Data Extraction Plan:**
+  * For EACH entity mentioned in query, identify if it exists in loaded data
+  * Mark as FACT (will assert) or UNKNOWN (will declare as variable)
+  * Example: Employee E-6112 clearance → Check employees.csv → Extract actual value
+  * Example: 2FA at 21:05 → Check 2FA logs → Did event occur? (yes/no is a FACT)
 ```
 
 ═══════════════════════════════════════════════════════════════════════════════
@@ -572,6 +621,24 @@ PHASE 2: DOMAIN MODELING
    Entities: [...]
 
 [list ALL constraints]
+
+### Ground Truth (from provided data files/logs)
+**CRITICAL: Distinguish FACTS (from data) vs UNKNOWNS (not provided)**
+
+**FACTS to Assert (extracted from data):**
+- fact_name = value (from source: file.csv / log.txt / database)
+- Example: has_topsecret_E6112 = false (from employees.csv)
+- Example: twofa_event_at_2055_exists = false (checked 2FA logs, none found)
+[List ALL facts extracted from provided data, or "No data provided"]
+
+**UNKNOWNS (not in data, will be declared as variables):**
+- unknown_var1 (reason: not mentioned in any data source)
+[List what's NOT in data but needed for logic, or "None"]
+
+**Data Extraction Notes:**
+- For verification queries: ALL relevant facts MUST be asserted
+- For possibility queries: Facts optional, can explore logical space
+- Missing critical data → Document as potential UNKNOWN result
 
 ### Query
 **Question:** [what exactly is being verified?]
@@ -721,11 +788,33 @@ Graph: If edge exists, both vertices must exist:
 (set-option :produce-models true)
 (set-option :produce-unsat-cores true)
 
-;; ========== Declarations ==========
-;; [Entity name]: [Type] — [description from Phase 2]
+;; ========================================
+;; SECTION 1: GROUND TRUTH (from data)
+;; ========================================
+;; These are FACTS extracted from provided data files/logs.
+;; DO NOT leave these as free variables!
+;; Each fact should reference its source from Phase 2.
+
+;; Example: From employees.csv
+;; (declare-const has_clearance_E6112 Bool)
+;; (assert (= has_clearance_E6112 false))  ; ← FACT from data
+
+;; Example: From 2FA logs
+;; (declare-const twofa_event_exists Bool)
+;; (assert (= twofa_event_exists false))  ; ← Checked logs, none found
+
+[Encode ALL facts from Phase 2 Ground Truth section]
+
+;; ========================================
+;; SECTION 2: DERIVED LOGIC & CONSTRAINTS
+;; ========================================
+;; These are computed/derived from ground truth.
+;; Variables here should be defined in terms of facts above.
+
+;; Declare derived variables
 (declare-const ...)
 
-;; ========== Constraints ==========
+;; Define derived values
 ;; Constraint 1: [natural language from Phase 2]
 (assert ...)
 
@@ -759,7 +848,17 @@ Before finalizing, verify:
     ☐ Query encoding matches Phase 2 encoding plan (check if assert or assert (not ...))
     ☐ All external references integrated
 
-5.2 CORRECTNESS:
+5.2 DATA EXTRACTION AUDIT (for verification queries):
+    ☐ All facts from Phase 2 Ground Truth are asserted (not left as free variables)
+    ☐ Ground truth section clearly separated from derived logic in SMT-LIB code
+    ☐ For EACH declared variable, verify classification:
+      * Is this a FACT from data? → Should be in SECTION 1 (Ground Truth)
+      * Is this DERIVED from facts? → Should be in SECTION 2 with definition
+      * Is this truly UNKNOWN? → Justify why it's not in provided data
+    ☐ No facts from data files are left as free/unconstrained variables
+    ☐ Uninterpreted functions are linked to ground truth via (=>) constraints
+
+5.3 CORRECTNESS:
     ☐ Logic from Phase 3 supports all operators used
     ☐ No undeclared symbols (every var/func referenced is declared)
     ☐ Type consistency (Int with Int, Bool with Bool, etc.)
@@ -1012,11 +1111,7 @@ def parse_cvc5_output(stdout: str, stderr: str) -> dict:
         "has_error": False
     }
 
-    # Check for errors in output
-    if "(error" in stdout_lower or "error:" in stdout_lower or stderr:
-        result["has_error"] = True
-        result["error"] = stdout if "(error" in stdout_lower else stderr
-
+    # Parse status FIRST (before error checking)
     if "unsat" in stdout_lower:
         result["status"] = "unsat"
     elif "sat" in stdout_lower and "unsat" not in stdout_lower:
@@ -1024,6 +1119,19 @@ def parse_cvc5_output(stdout: str, stderr: str) -> dict:
         # Try to extract model if present
         if "(" in stdout:
             result["model"] = stdout
+
+    # Check for errors in output
+    # IMPORTANT: Filter out expected "cannot get model" error for UNSAT results
+    if "(error" in stdout_lower or "error:" in stdout_lower or stderr:
+        # Special case: "cannot get model" after UNSAT is expected behavior, not an error
+        if "cannot get model" in stdout_lower and result["status"] == "unsat":
+            # This is expected - UNSAT results have no model
+            # Don't trigger TDD loop for this
+            result["has_error"] = False
+        else:
+            # Real error: syntax error, undefined symbol, type error, etc.
+            result["has_error"] = True
+            result["error"] = stdout if "(error" in stdout_lower else stderr
 
     if stderr:
         result["error"] = stderr
@@ -1258,7 +1366,7 @@ Return ONLY the formatted explanation, no preamble."""
             input=prompt,
             capture_output=True,
             text=True,
-            timeout=30
+            timeout=180  # Increased for complex explanation generation
         )
 
         if result_proc.returncode == 0:
@@ -1284,8 +1392,10 @@ selected_model = st.selectbox(
     "⚙️ Claude Model",
     options=list(AVAILABLE_MODELS.keys()),
     format_func=lambda x: AVAILABLE_MODELS[x],
-    index=list(AVAILABLE_MODELS.keys()).index(DEFAULT_MODEL),
-    help="Choose which Claude model to use. Haiku is fastest, Sonnet is balanced, Opus is most capable."
+    index=list(AVAILABLE_MODELS.keys()).index(st.session_state.preferences.get("model", DEFAULT_MODEL)),
+    help="Choose which Claude model to use. Haiku is fastest, Sonnet is balanced, Opus is most capable.",
+    key="model_selector",
+    on_change=lambda: update_preference("model", st.session_state.model_selector)
 )
 
 # Options
@@ -1293,14 +1403,18 @@ col1, col2 = st.columns(2)
 with col1:
     use_claude_conversion = st.checkbox(
         "🤖 Use Hupyy to convert natural language to SMT-LIB",
-        value=False,
-        help="Enable this to use Hupyy CLI for intelligent conversion of plain text to SMT-LIB v2.7"
+        value=st.session_state.preferences.get("use_claude_conversion", False),
+        help="Enable this to use Hupyy CLI for intelligent conversion of plain text to SMT-LIB v2.7",
+        key="use_claude_conversion_checkbox",
+        on_change=lambda: update_preference("use_claude_conversion", st.session_state.use_claude_conversion_checkbox)
     )
 with col2:
     auto_fix_errors = st.checkbox(
         "🔧 Auto-fix SMT-LIB errors (TDD loop)",
-        value=True,
-        help="If cvc5 reports an error, automatically ask Hupyy to fix the SMT-LIB code and retry (up to 3 attempts)"
+        value=st.session_state.preferences.get("auto_fix_errors", True),
+        help="If cvc5 reports an error, automatically ask Hupyy to fix the SMT-LIB code and retry (up to 3 attempts)",
+        key="auto_fix_errors_checkbox",
+        on_change=lambda: update_preference("auto_fix_errors", st.session_state.auto_fix_errors_checkbox)
     )
 
 # Solve button
