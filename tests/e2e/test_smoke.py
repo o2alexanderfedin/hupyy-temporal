@@ -43,27 +43,29 @@ class TestInfrastructureSmoke:
 
     def test_page_title_present(self, page: Page):
         """Verify page has a title."""
-        # The SMT-LIB Direct page should have a title
-        title = page.locator('text="🔧 SMT-LIB Direct Mode"')
+        # The Benchmark page should have a title
+        title = page.locator('text="📁 Benchmark Problems"')
         expect(title).to_be_visible()
 
-    def test_text_area_present(self, page: Page):
-        """Verify main text area input is present."""
-        # There should be a text area for user input
-        text_area = find_text_area(page)
-        expect(text_area).to_be_visible()
+    def test_selectbox_present(self, page: Page):
+        """Verify main selectbox is present."""
+        # There should be a selectbox for benchmark selection
+        sidebar = page.locator('[data-testid="stSidebar"]')
+        selectbox = sidebar.locator('[data-baseweb="select"]').first
+        expect(selectbox).to_be_visible()
 
     def test_run_button_present(self, page: Page):
         """Verify Run button is present."""
-        # Should have a Run cvc5 button
-        run_button = find_button(page, "Run cvc5")
+        # Should have a Run solver button in sidebar
+        sidebar = page.locator('[data-testid="stSidebar"]')
+        run_button = sidebar.locator('button:has-text("Run solver")')
         expect(run_button).to_be_visible()
 
     def test_helper_functions_work(self, page: Page):
         """Verify helper functions from streamlit_helpers work."""
         # Test that our helper utilities are functioning
         wait_for_streamlit_ready(page)
-        assert_text_visible(page, "🔧 SMT-LIB Direct Mode")
+        assert_text_visible(page, "📁 Benchmark Problems")
 
     def test_sample_queries_fixture_loaded(self, sample_queries):
         """Verify sample queries fixture loads correctly."""

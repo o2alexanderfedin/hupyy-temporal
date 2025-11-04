@@ -26,7 +26,7 @@ STREAMLIT_PORT = 8501
 STREAMLIT_HOST = "localhost"
 STREAMLIT_URL = f"http://{STREAMLIT_HOST}:{STREAMLIT_PORT}"
 STREAMLIT_STARTUP_TIMEOUT = 15  # seconds
-STREAMLIT_PAGE = "demo/pages/2_SMT_LIB_Direct.py"
+STREAMLIT_PAGE = "demo/app.py"
 
 # Project root
 ROOT_DIR = Path(__file__).resolve().parent.parent.parent
@@ -45,7 +45,7 @@ def streamlit_app() -> Generator[str, None, None]:
     """
     logger.info(f"Starting Streamlit app on port {STREAMLIT_PORT}...")
 
-    # Start Streamlit app
+    # Start Streamlit app (redirect output to devnull to avoid pipe blocking)
     process = subprocess.Popen(
         [
             "streamlit", "run", STREAMLIT_PAGE,
@@ -55,8 +55,8 @@ def streamlit_app() -> Generator[str, None, None]:
             "--server.fileWatcherType=none",
             "--browser.gatherUsageStats=false"
         ],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
         cwd=ROOT_DIR
     )
 
@@ -64,13 +64,11 @@ def streamlit_app() -> Generator[str, None, None]:
     logger.info(f"Waiting for Streamlit to start (timeout: {STREAMLIT_STARTUP_TIMEOUT}s)...")
     time.sleep(STREAMLIT_STARTUP_TIMEOUT)
 
-    # Verify process is running
-    if process.poll() is not None:
-        stdout, stderr = process.communicate()
+    # Verify process is still running (poll() returns None if running)
+    poll_result = process.poll()
+    if poll_result is not None:
         raise RuntimeError(
-            f"Streamlit process failed to start:\n"
-            f"STDOUT: {stdout.decode()}\n"
-            f"STDERR: {stderr.decode()}"
+            f"Streamlit process exited unexpectedly with code {poll_result}"
         )
 
     logger.info(f"Streamlit app running at {STREAMLIT_URL}")
