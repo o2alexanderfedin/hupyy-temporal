@@ -2,7 +2,6 @@
 import sys
 import json
 import time
-import subprocess
 from pathlib import Path
 
 # Make sure we can import engine/*
@@ -13,6 +12,8 @@ if str(ROOT) not in sys.path:
 import streamlit as st
 from engine.schemas import Event, Constraint, Query, Problem
 from engine.solver import solve
+from ai.claude_client import ClaudeClient
+from config.constants import TIMEOUT_AI_QUICK_PARSE
 
 st.set_page_config(page_title="Custom Problem - Hupyy Temporal", layout="wide")
 
@@ -64,20 +65,12 @@ Problem description:
 Return ONLY the JSON object, no explanations or markdown formatting."""
 
     try:
-        # Call Hupyy CLI via stdin (no escaping needed)
-        result = subprocess.run(
-            ["claude", "--print"],
-            input=prompt,
-            capture_output=True,
-            text=True,
-            timeout=30
-        )
-
-        if result.returncode != 0:
-            raise Exception(f"Hupyy CLI failed: {result.stderr}")
-
-        # Extract JSON from response (handle markdown code blocks if present)
-        response = result.stdout.strip()
+        # Call Claude CLI using ClaudeClient
+        client = ClaudeClient()
+        response = client.invoke(
+            prompt=prompt,
+            timeout=TIMEOUT_AI_QUICK_PARSE
+        ).strip()
 
         # Try to extract JSON from markdown code blocks
         if "```json" in response:
@@ -103,10 +96,6 @@ Return ONLY the JSON object, no explanations or markdown formatting."""
 
         return json_str
 
-    except subprocess.TimeoutExpired:
-        raise Exception("Hupyy CLI timed out")
-    except FileNotFoundError:
-        raise Exception("Hupyy CLI not found. Please install it from https://claude.com/claude-code")
     except Exception as e:
         raise Exception(f"Failed to convert natural language to JSON: {str(e)}")
 

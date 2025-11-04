@@ -2,7 +2,6 @@
 import sys
 import json
 import time
-import subprocess
 from pathlib import Path
 
 # --- Make sure we can import engine/* no matter where Streamlit starts us ---
@@ -13,6 +12,8 @@ if str(ROOT) not in sys.path:
 import streamlit as st  # noqa: E402
 from engine.schemas import Event, Constraint, Query, Problem  # noqa: E402
 from engine.solver import solve  # noqa: E402
+from ai.claude_client import ClaudeClient, ClaudeTimeoutError, ClaudeClientError  # noqa: E402
+from config.constants import TIMEOUT_AI_EXPLANATION  # noqa: E402
 
 st.set_page_config(page_title="Hupyy Temporal — Benchmarks", layout="wide")
 
@@ -78,29 +79,23 @@ Your explanation should:
 Return ONLY the formatted explanation, no preamble."""
 
     try:
-        result_proc = subprocess.run(
-            ["claude", "--print"],
-            input=prompt,
-            capture_output=True,
-            text=True,
-            timeout=30
-        )
+        client = ClaudeClient(default_timeout=TIMEOUT_AI_EXPLANATION)
+        explanation = client.invoke(
+            prompt=prompt,
+            timeout=TIMEOUT_AI_EXPLANATION
+        ).strip()
 
-        if result_proc.returncode == 0:
-            explanation = result_proc.stdout.strip()
-            # Clean up any markdown code blocks
-            if "```" in explanation:
-                parts = explanation.split("```")
-                for part in parts:
-                    if part.strip() and not part.strip().startswith(('python', 'json', 'text')):
-                        return part.strip()
-            return explanation
-        else:
-            return f"⚠️ Could not generate explanation: {result_proc.stderr}"
-    except subprocess.TimeoutExpired:
+        # Clean up any markdown code blocks
+        if "```" in explanation:
+            parts = explanation.split("```")
+            for part in parts:
+                if part.strip() and not part.strip().startswith(('python', 'json', 'text')):
+                    return part.strip()
+        return explanation
+    except ClaudeTimeoutError:
         return "⚠️ Explanation generation timed out"
-    except FileNotFoundError:
-        return "⚠️ Claude CLI not found. Install from https://claude.com/claude-code"
+    except ClaudeClientError as e:
+        return f"⚠️ Could not generate explanation: {str(e)}"
     except Exception as e:
         return f"⚠️ Error generating explanation: {str(e)}"
 
