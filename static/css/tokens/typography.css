@@ -90,3 +90,146 @@ code, pre {
     font-family: var(--font-mono);
     font-size: var(--font-size-small);
 }
+
+/* ============================================
+   STREAMLIT COMPONENT OVERRIDES (TASK-002)
+   Spec line 15: "Header: HUPYY (bold black, center top, 2.5rem)"
+   Spec line 16: "Subheader: 'What are we proving today?' (#555 gray, medium weight)"
+   ============================================ */
+
+/* Main Streamlit app container */
+.stApp {
+    font-family: var(--font-primary) !important;
+    color: var(--text-primary) !important;
+}
+
+/* Streamlit title component - Spec line 15 */
+.stTitle,
+h1.stTitle {
+    font-family: var(--font-primary) !important;
+    font-size: var(--font-size-h1) !important;       /* 2.5rem */
+    font-weight: var(--font-weight-black) !important;  /* 900 */
+    color: var(--text-primary) !important;           /* #111111 */
+    line-height: var(--line-height-tight) !important;
+    letter-spacing: var(--letter-spacing-tight) !important;
+}
+
+/* Streamlit markdown text */
+.stMarkdown {
+    font-family: var(--font-primary) !important;
+    color: var(--text-primary) !important;
+}
+
+.stMarkdown p {
+    font-size: var(--font-size-body) !important;
+    line-height: var(--line-height-relaxed) !important;
+    color: var(--text-primary) !important;
+}
+
+.stMarkdown h1 {
+    font-size: var(--font-size-h1) !important;
+    font-weight: var(--font-weight-black) !important;
+    color: var(--text-primary) !important;
+}
+
+.stMarkdown h2 {
+    font-size: var(--font-size-h2) !important;
+    font-weight: var(--font-weight-bold) !important;
+    color: var(--text-primary) !important;
+}
+
+.stMarkdown h3 {
+    font-size: var(--font-size-h3) !important;
+    font-weight: var(--font-weight-semibold) !important;
+    color: var(--text-primary) !important;
+}
+
+/* Streamlit subheader - Spec line 16 */
+.stMarkdown h2.subheader,
+.subheader {
+    font-size: var(--font-size-subheader) !important;  /* 1.25rem */
+    font-weight: var(--font-weight-medium) !important;  /* 500 */
+    color: var(--text-secondary) !important;           /* #555555 */
+}
+
+/* Streamlit text component */
+.stText {
+    font-family: var(--font-primary) !important;
+    color: var(--text-secondary) !important;
+}
+
+/* Streamlit code blocks */
+.stCode,
+.stCodeBlock {
+    font-family: var(--font-mono) !important;
+}
+
+.stCode code,
+.stCodeBlock code {
+    font-family: var(--font-mono) !important;
+    font-size: 0.9em !important;
+}
+
+/* Streamlit expander (for proof display) */
+.stExpander {
+    font-family: var(--font-primary) !important;
+}
+
+/* Streamlit success/error/warning messages */
+.stSuccess,
+.stError,
+.stWarning,
+.stInfo {
+    font-family: var(--font-primary) !important;
+}
+
+/* Streamlit metric component */
+.stMetric {
+    font-family: var(--font-primary) !important;
+}
+
+.stMetric label {
+    font-size: var(--font-size-small) !important;
+    color: var(--text-secondary) !important;
+}
+
+.stMetric [data-testid="stMetricValue"] {
+    font-size: var(--font-size-verdict) !important;    /* Large numbers */
+    font-weight: var(--font-weight-black) !important;
+}
+
+/* ============================================
+   UTILITY CLASSES
+   ============================================ */
+
+.text-primary {
+    color: var(--text-primary) !important;
+}
+
+.text-secondary {
+    color: var(--text-secondary) !important;
+}
+
+.text-tertiary {
+    color: var(--text-tertiary) !important;
+}
+
+.font-weight-normal {
+    font-weight: var(--font-weight-normal) !important;
+}
+
+.font-weight-medium {
+    font-weight: var(--font-weight-medium) !important;
+}
+
+.font-weight-semibold {
+    font-weight: var(--font-weight-semibold) !important;
+}
+
+.font-weight-bold {
+    font-weight: var(--font-weight-bold) !important;
+}
+
+.font-weight-black {
+    font-weight: var(--font-weight-black) !important;
+}
