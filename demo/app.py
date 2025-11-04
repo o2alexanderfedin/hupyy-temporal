@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 
 # Make sure we can import engine/*
-ROOT = Path(__file__).resolve().parent.parent.parent
+ROOT = Path(__file__).resolve().parent.parent  # demo/app.py -> demo -> hupyy-temporal
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
