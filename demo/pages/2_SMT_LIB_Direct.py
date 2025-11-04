@@ -943,7 +943,7 @@ def generate_human_explanation(user_input: str, smtlib_code: str, status: str, c
 **User's Original Problem:**
 {user_input[:1000]}
 
-**Generated SMT-LIB Code:**
+**Extracted SMT-LIB Constraints:**
 ```smt2
 {smtlib_code[:1500]}
 ```
@@ -1040,10 +1040,10 @@ if st.button("▶️ Run cvc5", type="primary", use_container_width=True):
 
             # Get SMT-LIB code
             if should_use_claude:
-                with st.spinner("🤖 Using Hupyy to generate SMT-LIB v2.7..."):
+                with st.spinner("🤖 Using Hupyy to extract symbolic constraints..."):
                     smtlib_code = convert_to_smtlib(user_input)
-                    st.success("✓ Generated SMT-LIB code")
-                    with st.expander("📄 View Generated SMT-LIB"):
+                    st.success("✓ Extracted symbolic constraints")
+                    with st.expander("📄 View Extracted SMT-LIB"):
                         st.code(smtlib_code, language="lisp")
 
                     # Show phase analysis if available
@@ -1106,7 +1106,7 @@ if st.button("▶️ Run cvc5", type="primary", use_container_width=True):
                                 "fixed_code": fixed_code
                             })
 
-                            st.info(f"✓ Hupyy generated corrected SMT-LIB code")
+                            st.info(f"✓ Hupyy extracted corrected symbolic constraints")
                             with st.expander(f"📄 View corrected code (attempt {attempt + 1})"):
                                 st.code(fixed_code, language="lisp")
 
