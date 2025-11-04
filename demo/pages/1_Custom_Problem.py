@@ -38,7 +38,7 @@ Or paste JSON format directly from data/ folder""",
 )
 
 def convert_natural_language_to_json(text: str) -> str:
-    """Use AI Hive® CLI to convert natural language to JSON format."""
+    """Use Hupyy CLI to convert natural language to JSON format."""
     prompt = f"""Convert the following temporal reasoning problem into JSON format matching this schema:
 
 {{
@@ -64,7 +64,7 @@ Problem description:
 Return ONLY the JSON object, no explanations or markdown formatting."""
 
     try:
-        # Call AI Hive® CLI via stdin (no escaping needed)
+        # Call Hupyy CLI via stdin (no escaping needed)
         result = subprocess.run(
             ["claude", "--print"],
             input=prompt,
@@ -74,7 +74,7 @@ Return ONLY the JSON object, no explanations or markdown formatting."""
         )
 
         if result.returncode != 0:
-            raise Exception(f"AI Hive® CLI failed: {result.stderr}")
+            raise Exception(f"Hupyy CLI failed: {result.stderr}")
 
         # Extract JSON from response (handle markdown code blocks if present)
         response = result.stdout.strip()
@@ -94,7 +94,7 @@ Return ONLY the JSON object, no explanations or markdown formatting."""
         end_idx = response.rfind('}')
 
         if start_idx == -1 or end_idx == -1:
-            raise Exception("No JSON object found in AI Hive®'s response")
+            raise Exception("No JSON object found in Hupyy's response")
 
         json_str = response[start_idx:end_idx+1]
 
@@ -104,9 +104,9 @@ Return ONLY the JSON object, no explanations or markdown formatting."""
         return json_str
 
     except subprocess.TimeoutExpired:
-        raise Exception("AI Hive® CLI timed out")
+        raise Exception("Hupyy CLI timed out")
     except FileNotFoundError:
-        raise Exception("AI Hive® CLI not found. Please install it from https://claude.com/claude-code")
+        raise Exception("Hupyy CLI not found. Please install it from https://claude.com/claude-code")
     except Exception as e:
         raise Exception(f"Failed to convert natural language to JSON: {str(e)}")
 
@@ -126,7 +126,7 @@ def parse_custom_input(text: str, use_claude: bool = False):
         except (json.JSONDecodeError, KeyError, TypeError) as e:
             raise ValueError(f"Invalid JSON format: {e}")
 
-    # If use_claude flag is set, use AI Hive® to convert to JSON
+    # If use_claude flag is set, use Hupyy to convert to JSON
     if use_claude:
         json_str = convert_natural_language_to_json(text)
         return parse_custom_input(json_str, use_claude=False)  # Parse the generated JSON
@@ -269,9 +269,9 @@ def parse_query_line(line: str):
 
 # Options
 use_claude_parsing = st.checkbox(
-    "🤖 Use AI Hive® to parse natural language",
+    "🤖 Use Hupyy to parse natural language",
     value=False,
-    help="Enable this to use AI Hive® CLI for intelligent parsing of plain text descriptions"
+    help="Enable this to use Hupyy CLI for intelligent parsing of plain text descriptions"
 )
 
 # Solve button
@@ -285,7 +285,7 @@ if st.button("🔍 Solve", type="primary", use_container_width=True):
 
             # Parse input
             if should_use_claude:
-                with st.spinner("🤖 Using AI Hive® to parse natural language..."):
+                with st.spinner("🤖 Using Hupyy to parse natural language..."):
                     problem = parse_custom_input(user_input, use_claude=True)
             else:
                 with st.spinner("Parsing problem..."):
@@ -377,8 +377,8 @@ with st.expander("ℹ️ Format Help"):
     - `A after B` - Does A happen after B?
     - `A equals B` - Do A and B happen at the same time?
 
-    #### Option 3: Free-form Text with AI Hive® 🤖
-    Enable "Use AI Hive® to parse natural language" checkbox and write your problem in plain English:
+    #### Option 3: Free-form Text with Hupyy 🤖
+    Enable "Use Hupyy to parse natural language" checkbox and write your problem in plain English:
     ```
     I have two projects, Alpha and Beta. Each has 4 milestones.
     In Alpha: A1 must happen before A2, A2 before A3, and A3 before A4.
@@ -388,5 +388,5 @@ with st.expander("ℹ️ Format Help"):
     Question: Does A3 complete before B3 starts?
     ```
 
-    AI Hive® will intelligently convert this to the proper JSON format for solving.
+    Hupyy will intelligently convert this to the proper JSON format for solving.
     """)
