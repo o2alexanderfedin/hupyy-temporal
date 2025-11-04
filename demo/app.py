@@ -1115,13 +1115,34 @@ Return ONLY the formatted explanation, no preamble."""
         elapsed = time.time() - start_time
         logger.info(f"✓ Explanation generated in {elapsed:.2f}s")
         logger.info(f"Explanation length: {len(explanation)} characters")
+        logger.debug(f"Raw explanation from Claude:\n{explanation}")
 
         # Clean up any markdown code blocks
         if "```" in explanation:
             logger.debug("Cleaning up markdown code blocks from explanation")
             parts = explanation.split("```")
-            for part in parts:
+            logger.debug(f"Split into {len(parts)} parts")
+
+            # First pass: look for parts with actual proof content
+            # (avoid returning preambles like "Based on the SMT solver results...")
+            for i, part in enumerate(parts):
+                logger.debug(f"Part {i}: {len(part)} chars, starts with: {part.strip()[:50] if part.strip() else '(empty)'}")
+                stripped = part.strip()
+                if stripped and not stripped.startswith(('python', 'json', 'text', 'smt2', 'lisp')):
+                    # Prioritize parts that look like actual proof content
+                    if ('Proof:' in stripped or '•' in stripped or
+                        stripped.count('\n') > 2):  # Multi-line content
+                        logger.info(f"Returning part {i} as explanation (contains proof content)")
+                        logger.info("=" * 60)
+                        logger.info("EXPLANATION GENERATION COMPLETE")
+                        logger.info("=" * 60)
+                        return stripped
+
+            # Second pass: fallback to first non-empty part
+            # (for cases where content doesn't match proof patterns)
+            for i, part in enumerate(parts):
                 if part.strip() and not part.strip().startswith(('python', 'json', 'text', 'smt2', 'lisp')):
+                    logger.info(f"Returning part {i} as explanation (fallback)")
                     logger.info("=" * 60)
                     logger.info("EXPLANATION GENERATION COMPLETE")
                     logger.info("=" * 60)
