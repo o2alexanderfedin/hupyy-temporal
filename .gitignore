@@ -26,6 +26,9 @@ eval/comparison_report.md
 eval/comparison_report.csv
 eval/test.pid
 
+# Runtime test metadata (environment-specific)
+**/run_metadata.json
+
 # Keep baselines and llm_runs
 !eval/baselines.md
 !eval/llm_runs.json
