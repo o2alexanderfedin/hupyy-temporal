@@ -1,0 +1,33 @@
+/* ============================================
+   SHADOW ELEVATION SYSTEM
+   Based on docs/ui-ux/ui-ux-spec.md line 66
+   "Shadows: rgba(0,0,0,0.1) soft and elevated"
+   ============================================ */
+
+:root {
+    /* Shadow Elevation Levels */
+    --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
+    --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.06);
+    --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.08);
+    --shadow-lg: 0 8px 16px rgba(0, 0, 0, 0.1);
+    --shadow-xl: 0 12px 24px rgba(0, 0, 0, 0.12);
+    --shadow-2xl: 0 16px 32px rgba(0, 0, 0, 0.14);
+
+    /* Spec line 66: Soft and elevated */
+    --shadow-elevated: 0 8px 24px rgba(0, 0, 0, 0.1);
+
+    /* Button Shadows */
+    --shadow-button: 0 3px 10px rgba(1, 118, 211, 0.15);
+    --shadow-button-hover: 0 5px 16px rgba(1, 118, 211, 0.25);
+
+    /* Card Shadows - Spec line 39 */
+    --shadow-card-soft: 0 8px 24px rgba(0, 0, 0, 0.08);
+
+    /* Inner Shadows */
+    --shadow-inner: inset 0 2px 4px rgba(0, 0, 0, 0.06);
+    --shadow-inner-strong: inset 0 3px 6px rgba(0, 0, 0, 0.1);
+
+    /* Top Highlight (for 3D effect) */
+    --shadow-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    --shadow-highlight-strong: inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}

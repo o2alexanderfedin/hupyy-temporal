@@ -1,0 +1,121 @@
+/* ============================================
+   HUPYY TEMPORAL - MAIN STYLESHEET
+   Design System Implementation
+   Reference: docs/ui-ux/ui-ux-spec.md
+   Sprint 003: UI/UX Redesign
+   ============================================ */
+
+/* ============================================
+   DESIGN TOKENS (Foundation)
+   ============================================ */
+@import url('tokens/colors.css');
+@import url('tokens/typography.css');
+@import url('tokens/spacing.css');
+@import url('tokens/shadows.css');
+
+/* ============================================
+   LAYOUT SYSTEMS
+   ============================================ */
+@import url('layouts/backgrounds.css');
+@import url('layouts/composition.css');
+
+/* ============================================
+   COMPONENTS
+   ============================================ */
+@import url('components/buttons.css');
+@import url('components/inputs.css');
+@import url('components/cards.css');
+@import url('components/animations.css');
+
+/* ============================================
+   STREAMLIT BASE RESETS & OVERRIDES
+   ============================================ */
+
+/* Reset Streamlit default padding and max-width */
+.main .block-container {
+    max-width: var(--container-max); /* 1200px */
+    padding-top: var(--padding-page-md);
+    padding-bottom: var(--padding-page-md);
+    padding-left: var(--padding-page-sm);
+    padding-right: var(--padding-page-sm);
+}
+
+@media (min-width: 768px) {
+    .main .block-container {
+        padding-left: var(--padding-page-md);
+        padding-right: var(--padding-page-md);
+    }
+}
+
+@media (min-width: 1024px) {
+    .main .block-container {
+        padding-left: var(--padding-page-lg);
+        padding-right: var(--padding-page-lg);
+    }
+}
+
+/* Hide Streamlit branding (optional) */
+#MainMenu {
+    visibility: hidden;
+}
+
+footer {
+    visibility: hidden;
+}
+
+/* Remove Streamlit default button styling for custom implementation */
+.stButton > button {
+    font-family: var(--font-primary);
+}
+
+/* Streamlit headings use design system fonts */
+.stMarkdown h1,
+.stMarkdown h2,
+.stMarkdown h3 {
+    font-family: var(--font-primary);
+}
+
+/* ============================================
+   UTILITY CLASSES
+   ============================================ */
+
+/* Centering */
+.center-text {
+    text-align: center;
+}
+
+.center-content {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* Spacing Utilities */
+.mb-sm { margin-bottom: var(--space-md); }
+.mb-md { margin-bottom: var(--space-lg); }
+.mb-lg { margin-bottom: var(--space-xl); }
+.mb-xl { margin-bottom: var(--space-2xl); }
+
+.mt-sm { margin-top: var(--space-md); }
+.mt-md { margin-top: var(--space-lg); }
+.mt-lg { margin-top: var(--space-xl); }
+.mt-xl { margin-top: var(--space-2xl); }
+
+/* Max-width Utilities */
+.max-w-sm {
+    max-width: var(--card-max);
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.max-w-md {
+    max-width: var(--content-max);
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.max-w-lg {
+    max-width: var(--container-max);
+    margin-left: auto;
+    margin-right: auto;
+}

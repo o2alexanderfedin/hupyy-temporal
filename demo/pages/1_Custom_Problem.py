@@ -14,8 +14,12 @@ from engine.schemas import Event, Constraint, Query, Problem
 from engine.solver import solve
 from ai.claude_client import ClaudeClient
 from config.constants import TIMEOUT_AI_QUICK_PARSE
+from demo.styles import inject_css
 
 st.set_page_config(page_title="Custom Problem - Hupyy Temporal", layout="wide")
+
+# Inject custom CSS design system (Sprint 003)
+inject_css()
 
 st.title("Facts & Constraints")
 

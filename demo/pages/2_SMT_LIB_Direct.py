@@ -26,8 +26,12 @@ from solvers.cvc5_runner import CVC5Runner, CVC5Result
 # Import PDF generation modules
 from reports.pdf_generator import PDFReportGenerator
 from reports.schemas import ReportData, CorrectionRecord
+from demo.styles import inject_css
 
 st.set_page_config(page_title="Symbolic Constraints - Hupyy Temporal", layout="wide")
+
+# Inject custom CSS design system (Sprint 003)
+inject_css()
 
 # Model configuration - can be overridden by environment variable
 # Options: "haiku" (fastest), "sonnet" (balanced), "opus" (most capable)

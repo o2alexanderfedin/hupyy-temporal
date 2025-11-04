@@ -14,8 +14,12 @@ from engine.schemas import Event, Constraint, Query, Problem  # noqa: E402
 from engine.solver import solve  # noqa: E402
 from ai.claude_client import ClaudeClient, ClaudeTimeoutError, ClaudeClientError  # noqa: E402
 from config.constants import TIMEOUT_AI_EXPLANATION  # noqa: E402
+from demo.styles import inject_css  # noqa: E402
 
 st.set_page_config(page_title="Hupyy Temporal — Benchmarks", layout="wide")
+
+# Inject custom CSS design system (Sprint 003)
+inject_css()
 
 st.title("📁 Benchmark Problems")
 

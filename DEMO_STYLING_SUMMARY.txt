@@ -1,0 +1,322 @@
+STREAMLIT DEMO APP - ARCHITECTURAL SUMMARY
+============================================
+
+PROJECT: Hupyy Temporal Demo Application
+PURPOSE: Web-based interface for temporal reasoning & formal verification using SMT solvers
+FRAMEWORK: Streamlit (Python web app framework)
+LOCATION: /demo directory
+
+==============================================================================
+MAIN APPLICATION STRUCTURE
+==============================================================================
+
+demo/app.py (225 lines)
+  Purpose: Benchmark problem browser and solver runner
+  Layout: Wide (3-column)
+  
+  Components:
+    - Sidebar: Problem selection, persist toggle, run button
+    - Left Column: Facts & Constraints display
+    - Middle Column: Answer + Claude-generated explanation
+    - Right Column: Proof/Witness (UNSAT core or counterexample)
+    
+  Features:
+    • Load benchmark problems from data/*.json
+    • Run temporal solver
+    • AI-powered explanations via Claude
+    • Download proofs and witnesses
+
+pages/1_Custom_Problem.py (382 lines)
+  Purpose: Convert natural language to temporal reasoning problems
+  Layout: Wide
+  
+  Components:
+    - Text area for JSON or natural language input
+    - Option toggles for Hupyy AI parsing
+    - Primary solve button
+    - Results display with proof/witness expanders
+    
+  Features:
+    • Parse JSON problems directly
+    • Parse structured natural language
+    • Use Claude to convert free-form text to JSON
+    • Event/Constraint/Query extraction
+    • Results with proof expansion
+
+pages/2_SMT_LIB_Direct.py (1436 lines - MOST COMPLEX)
+  Purpose: Direct SMT-LIB v2.7 symbolic constraint solver
+  Layout: Wide
+  
+  Components:
+    - Text area for SMT-LIB code or natural language
+    - Model selector (Haiku/Sonnet/Opus)
+    - Option toggles for conversion and auto-fix
+    - Run button with TDD loop support
+    - Extensive error handling and correction history
+    
+  Features:
+    • 5-phase AI conversion (Problem → SMT-LIB)
+    • TDD loop with auto-fix (up to 10 attempts)
+    • Phase analysis viewing
+    • Error diagnostics
+    • PDF report generation
+    • User preference persistence
+    • Correction history tracking
+
+==============================================================================
+CURRENT STYLING APPROACH
+==============================================================================
+
+NO CUSTOM CSS CURRENTLY IMPLEMENTED:
+  ✗ No .streamlit/config.toml file
+  ✗ No CSS files in project
+  ✗ All styling uses Streamlit defaults
+
+STYLING MECHANISMS IN USE:
+  ✓ Streamlit native components (success/error/warning/info boxes)
+  ✓ Emoji icons in titles/buttons (📁 🔧 ✅ ❌ ⚠️ 📝 etc)
+  ✓ Markdown formatting (**bold**, `code`, headers)
+  ✓ Component-based layout (columns, sidebar, expanders)
+
+COLOR INDICATORS:
+  ✓ st.success() → Green boxes
+  ✓ st.error() → Red boxes
+  ✓ st.warning() → Orange boxes
+  ✓ st.info() → Blue boxes
+
+==============================================================================
+COMPONENTS INVENTORY (STYLING TARGETS)
+==============================================================================
+
+TEXT/DISPLAY:
+  st.title()        - Page title
+  st.subheader()    - Section headers
+  st.markdown()     - Rich text
+  st.write()        - Plain text
+  st.caption()      - Small captions
+  st.code()         - Syntax-highlighted code blocks
+
+INPUT:
+  st.text_area()    - Multi-line text input
+  st.button()       - Action buttons (primary type used)
+  st.checkbox()     - Toggle options
+  st.selectbox()    - Dropdown selection
+
+LAYOUT:
+  st.columns()      - Multi-column layout (3 in main, 2-3 in pages)
+  st.sidebar        - Sidebar container
+  st.expander()     - Collapsible sections
+
+STATUS/FEEDBACK:
+  st.success()      - Green success message
+  st.error()        - Red error message
+  st.warning()      - Orange warning message
+  st.info()         - Blue info message
+  st.spinner()      - Loading indicator
+
+DATA DISPLAY:
+  st.json()         - JSON viewer
+  st.code()         - Code viewer with syntax highlighting
+
+INTERACTIVE:
+  st.download_button() - File downloads
+  st.expander()        - Accordion sections
+
+==============================================================================
+STYLING INJECTION POINTS (READY FOR SPRINT 003)
+==============================================================================
+
+METHOD 1: GLOBAL CSS (Recommended)
+  Location: Top of demo/app.py (after st.set_page_config)
+  Scope: Affects all pages
+  Implementation: st.markdown(..., unsafe_allow_html=True)
+
+METHOD 2: STREAMLIT THEME CONFIG
+  Location: .streamlit/config.toml (create at project root)
+  Scope: Global theme settings
+  Properties: primaryColor, backgroundColor, textColor, font, etc.
+
+METHOD 3: PAGE-SPECIFIC CSS
+  Location: Top of individual page files (1_Custom_Problem.py, etc)
+  Scope: Affects only that page
+  Implementation: Page-level st.markdown() with CSS
+
+METHOD 4: REUSABLE STYLES MODULE
+  Location: demo/styles.py (new file)
+  Scope: Importable functions for consistent styling
+  Implementation: Functions that generate styled components
+
+==============================================================================
+CSS SELECTORS FOR STREAMLIT COMPONENTS
+==============================================================================
+
+Buttons:
+  [data-testid="stButton"] > button[kind="primary"]
+  [data-testid="stButton"] > button[kind="secondary"]
+
+Status Boxes:
+  [data-testid="stAlert"][kind="success"]
+  [data-testid="stAlert"][kind="error"]
+  [data-testid="stAlert"][kind="warning"]
+  [data-testid="stAlert"][kind="info"]
+
+Input Fields:
+  [data-testid="stTextArea"] textarea
+  [data-testid="stTextInput"] input
+  [data-testid="stSelectbox"]
+  [data-testid="stCheckbox"]
+
+Code/Data Display:
+  [data-testid="stCode"]
+  [data-testid="stJson"]
+  [data-testid="stMarkdown"]
+
+Layout:
+  [data-testid="stSidebar"]
+  [data-testid="stColumns"]
+  [data-testid="stExpander"]
+  [data-testid="stExpanderDetails"]
+
+==============================================================================
+SPRINT 003 UI/UX REDESIGN - KEY ENHANCEMENT AREAS
+==============================================================================
+
+Visual Hierarchy:
+  - Title styling (color, size, underline)
+  - Subheader differentiation
+  - Section dividers and spacing
+
+Status Indicators:
+  - Custom success/error/warning/info colors
+  - Better icons and visual feedback
+  - Result highlighting (SAT/UNSAT/UNKNOWN distinction)
+
+Code Display:
+  - Syntax highlighting improvements
+  - Line numbers and copy buttons
+  - Better visual organization
+
+Forms & Input:
+  - Border styling and focus states
+  - Button hover effects
+  - Checkbox/select consistency
+
+Layout & Spacing:
+  - Column alignment and padding
+  - Sidebar visual hierarchy
+  - Result section organization
+
+Results Display:
+  - Better expander visual feedback
+  - Grouped download buttons
+  - Clean metadata presentation
+
+==============================================================================
+RECOMMENDED IMPLEMENTATION SEQUENCE
+==============================================================================
+
+Phase 1: FOUNDATION
+  1. Create .streamlit/config.toml with brand colors
+  2. Create demo/styles.py with reusable functions
+  3. Add global CSS to demo/app.py
+
+Phase 2: COMPONENT STYLING
+  1. Style buttons (primary, secondary, hover states)
+  2. Style status boxes (success, error, warning, info)
+  3. Style code blocks and text areas
+  4. Style expanders and collapsible sections
+
+Phase 3: PAGE-SPECIFIC ENHANCEMENTS
+  1. Apply styling to pages/1_Custom_Problem.py
+  2. Apply styling to pages/2_SMT_LIB_Direct.py
+  3. Improve visual hierarchy in results sections
+  4. Add animations for solver execution
+
+Phase 4: POLISH & TESTING
+  1. Responsive design testing (mobile, tablet)
+  2. Accessibility testing (color contrast, focus states)
+  3. Fine-tune animations and transitions
+  4. Test with various content lengths
+
+==============================================================================
+FILE LOCATIONS
+==============================================================================
+
+/hupyy-temporal/
+├── demo/
+│   ├── app.py                    # Main app (benchmark browser)
+│   ├── pages/
+│   │   ├── 1_Custom_Problem.py   # NL to temporal solver
+│   │   └── 2_SMT_LIB_Direct.py   # Direct SMT-LIB solver
+│   ├── styles.py                 # [TO CREATE] Reusable styles module
+│   └── [NO .streamlit/ directory yet]
+├── .streamlit/
+│   └── config.toml               # [TO CREATE] Theme configuration
+├── data/                         # Benchmark JSON problems
+├── proofs/                       # Output artifacts
+├── DEMO_ARCHITECTURE.md          # [CREATED] Detailed architecture
+└── STYLING_INTEGRATION_GUIDE.md  # [CREATED] Implementation guide
+
+==============================================================================
+KEY TECHNICAL NOTES
+==============================================================================
+
+Framework Limitations:
+  - Streamlit doesn't support external CSS files
+  - All styling must be via st.markdown(..., unsafe_allow_html=True)
+  - Theme config only supports limited properties
+  - Component styling requires specific data-testid selectors
+
+Opportunities:
+  - Easy to inject custom CSS via markdown
+  - Can create wrapper functions for consistency
+  - Session state enables dynamic themes
+  - Streamlit's st.html() provides more control (newer feature)
+
+Performance Considerations:
+  - Keep CSS minimal to avoid page load delays
+  - Use CSS classes instead of inline styles
+  - Cache styles in session state if needed
+  - Test with long-running operations
+
+Accessibility:
+  - Ensure color contrast meets WCAG standards
+  - Add focus states for keyboard navigation
+  - Test with screen readers
+  - Support reduced motion preferences
+
+==============================================================================
+QUICK START FOR SPRINT 003
+==============================================================================
+
+1. Read: DEMO_ARCHITECTURE.md (complete breakdown)
+2. Read: STYLING_INTEGRATION_GUIDE.md (code examples)
+3. Create: .streamlit/config.toml with brand colors
+4. Create: demo/styles.py with reusable functions
+5. Modify: demo/app.py to load global styles
+6. Modify: pages/*.py to apply page-specific styles
+7. Test: All components across different page states
+8. Review: Accessibility and responsiveness
+
+==============================================================================
+SUMMARY STATISTICS
+==============================================================================
+
+Lines of Code:
+  - demo/app.py: 225 lines
+  - pages/1_Custom_Problem.py: 382 lines
+  - pages/2_SMT_LIB_Direct.py: 1436 lines (complex)
+  TOTAL: ~2,043 lines
+
+Components to Style:
+  - High Priority: 7 component types
+  - Medium Priority: 5 component types
+  - Low Priority: 3 component types
+
+Styling Methods:
+  - Streamlit Theme Config (1 file: config.toml)
+  - Global CSS Injection (1 location: app.py)
+  - Page-Specific CSS (3 files: app.py + 2 pages)
+  - Reusable Styles Module (1 file: styles.py)
+
+==============================================================================
