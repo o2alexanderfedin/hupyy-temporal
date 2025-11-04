@@ -570,6 +570,19 @@ PHASE 1: PROBLEM COMPREHENSION
 **Reference Status:** [all-loaded / partial / failed / none]
 **Complete Problem:** [merged problem text with all references]
 **Complexity:** [simple/medium/complex/very-complex]
+
+**Data Inventory (CRITICAL for verification queries):**
+If problem references data files, logs, databases, or records:
+- **Data Sources Available:** [list all: employee DB, access logs, 2FA logs, policies, etc.]
+- **Query Type:** [verification-from-data / possibility-exploration / proof-of-property]
+  * verification-from-data: "Did X happen?" → Must extract facts from data
+  * possibility-exploration: "Can X happen?" → May omit specific data values
+  * proof-of-property: "X always holds" → Assert property, expect UNSAT for violations
+- **Data Extraction Plan:**
+  * For EACH entity mentioned in query, identify if it exists in loaded data
+  * Mark as FACT (will assert) or UNKNOWN (will declare as variable)
+  * Example: Employee E-6112 clearance → Check employees.csv → Extract actual value
+  * Example: 2FA at 21:05 → Check 2FA logs → Did event occur? (yes/no is a FACT)
 ```
 
 ═══════════════════════════════════════════════════════════════════════════════
@@ -608,6 +621,24 @@ PHASE 2: DOMAIN MODELING
    Entities: [...]
 
 [list ALL constraints]
+
+### Ground Truth (from provided data files/logs)
+**CRITICAL: Distinguish FACTS (from data) vs UNKNOWNS (not provided)**
+
+**FACTS to Assert (extracted from data):**
+- fact_name = value (from source: file.csv / log.txt / database)
+- Example: has_topsecret_E6112 = false (from employees.csv)
+- Example: twofa_event_at_2055_exists = false (checked 2FA logs, none found)
+[List ALL facts extracted from provided data, or "No data provided"]
+
+**UNKNOWNS (not in data, will be declared as variables):**
+- unknown_var1 (reason: not mentioned in any data source)
+[List what's NOT in data but needed for logic, or "None"]
+
+**Data Extraction Notes:**
+- For verification queries: ALL relevant facts MUST be asserted
+- For possibility queries: Facts optional, can explore logical space
+- Missing critical data → Document as potential UNKNOWN result
 
 ### Query
 **Question:** [what exactly is being verified?]
@@ -757,11 +788,33 @@ Graph: If edge exists, both vertices must exist:
 (set-option :produce-models true)
 (set-option :produce-unsat-cores true)
 
-;; ========== Declarations ==========
-;; [Entity name]: [Type] — [description from Phase 2]
+;; ========================================
+;; SECTION 1: GROUND TRUTH (from data)
+;; ========================================
+;; These are FACTS extracted from provided data files/logs.
+;; DO NOT leave these as free variables!
+;; Each fact should reference its source from Phase 2.
+
+;; Example: From employees.csv
+;; (declare-const has_clearance_E6112 Bool)
+;; (assert (= has_clearance_E6112 false))  ; ← FACT from data
+
+;; Example: From 2FA logs
+;; (declare-const twofa_event_exists Bool)
+;; (assert (= twofa_event_exists false))  ; ← Checked logs, none found
+
+[Encode ALL facts from Phase 2 Ground Truth section]
+
+;; ========================================
+;; SECTION 2: DERIVED LOGIC & CONSTRAINTS
+;; ========================================
+;; These are computed/derived from ground truth.
+;; Variables here should be defined in terms of facts above.
+
+;; Declare derived variables
 (declare-const ...)
 
-;; ========== Constraints ==========
+;; Define derived values
 ;; Constraint 1: [natural language from Phase 2]
 (assert ...)
 
@@ -795,7 +848,17 @@ Before finalizing, verify:
     ☐ Query encoding matches Phase 2 encoding plan (check if assert or assert (not ...))
     ☐ All external references integrated
 
-5.2 CORRECTNESS:
+5.2 DATA EXTRACTION AUDIT (for verification queries):
+    ☐ All facts from Phase 2 Ground Truth are asserted (not left as free variables)
+    ☐ Ground truth section clearly separated from derived logic in SMT-LIB code
+    ☐ For EACH declared variable, verify classification:
+      * Is this a FACT from data? → Should be in SECTION 1 (Ground Truth)
+      * Is this DERIVED from facts? → Should be in SECTION 2 with definition
+      * Is this truly UNKNOWN? → Justify why it's not in provided data
+    ☐ No facts from data files are left as free/unconstrained variables
+    ☐ Uninterpreted functions are linked to ground truth via (=>) constraints
+
+5.3 CORRECTNESS:
     ☐ Logic from Phase 3 supports all operators used
     ☐ No undeclared symbols (every var/func referenced is declared)
     ☐ Type consistency (Int with Int, Bool with Bool, etc.)
