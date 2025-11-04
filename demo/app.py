@@ -928,9 +928,9 @@ Key information from that analysis:
 Use this context to understand the original intent and avoid changing the problem semantics.
 """
 
-    prompt = f"""The following SMT-LIB v2.7 code produced an error when run through cvc5.
+    prompt = f"""The following SMT-LIB v2.7 code produced an error when run through the SMT solver.
 
-**ERROR MESSAGE FROM cvc5:**
+**ERROR MESSAGE FROM SOLVER:**
 {error_message}
 
 **ORIGINAL PROBLEM:**
@@ -1224,7 +1224,7 @@ with col2:
     auto_fix_errors = st.checkbox(
         "🔧 Auto-fix constraint errors (TDD loop)",
         value=st.session_state.preferences.get("auto_fix_errors", True),
-        help="If cvc5 reports an error, automatically ask Hupyy to fix the symbolic constraints and retry (up to 3 attempts)",
+        help="If the solver reports an error, automatically ask Hupyy to fix the symbolic constraints and retry (up to 3 attempts)",
         key="auto_fix_errors_checkbox",
         on_change=lambda: update_preference("auto_fix_errors", st.session_state.auto_fix_errors_checkbox)
     )
@@ -1431,7 +1431,7 @@ if 'last_result' in st.session_state:
         if len(correction_history) > 0:
             st.error(f"❌ Failed after {len(correction_history)} attempt(s). Last error persists.")
         else:
-            st.error("❌ **ERROR** in cvc5 execution")
+            st.error("❌ **ERROR** in solver execution")
         with st.expander("🔍 View Error"):
             st.code(final_result["error"], language="text")
     elif final_result["status"] in ["sat", "unsat", "unknown"]:
@@ -1618,7 +1618,7 @@ if 'last_result' in st.session_state:
                         st.markdown("---")
 
         # Show raw output
-        with st.expander("📋 Raw cvc5 Output"):
+        with st.expander("📋 Raw Solver Output"):
             st.text(final_stdout)
             if final_result.get("error"):
                 st.text("--- stderr ---")
@@ -1629,7 +1629,7 @@ with st.expander("ℹ️ SMT-LIB Format Help"):
     st.markdown("""
     ### What is SMT-LIB?
 
-    SMT-LIB is the standard input format for SMT (Satisfiability Modulo Theories) solvers like cvc5.
+    SMT-LIB is the standard input format for SMT (Satisfiability Modulo Theories) solvers.
     It's a LISP-like language that allows direct access to all solver capabilities.
 
     ### Current Version: SMT-LIB v2.7 (2025)
@@ -1711,17 +1711,4 @@ with st.expander("ℹ️ SMT-LIB Format Help"):
 
     - [SMT-LIB Official Site](https://smt-lib.org)
     - [SMT-LIB v2.7 Reference](https://smt-lib.org/papers/smt-lib-reference-v2.7-r2025-02-05.pdf)
-    - [cvc5 Documentation](https://cvc5.github.io/)
-    - [cvc5 Tutorial](https://cvc5.github.io/tutorials/beginners/)
     """)
-
-# Info box
-st.info("""
-💡 **Why use SMT-LIB Direct?**
-
-- ✅ Access to full cvc5 capabilities
-- ✅ No translation layer or conversion bugs
-- ✅ Standard format understood by all SMT solvers
-- ✅ Direct control over solver options and theories
-- ✅ Easier debugging with native format
-""")
