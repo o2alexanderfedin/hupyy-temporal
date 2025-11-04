@@ -551,6 +551,26 @@ Graph: If edge exists, both vertices must exist:
 ;; ========================================
 ;; These are computed/derived from ground truth.
 ;; Variables here should be defined in terms of facts above.
+;;
+;; **CRITICAL: LINK DERIVED PROPERTIES TO ENTITY EXISTENCE**
+;; If ground truth shows entity doesn't exist (entity_exists = false),
+;; then properties ABOUT that entity must be constrained!
+;;
+;; WRONG approach (allows vacuous truth):
+;;   (assert (= entity_exists false))     ; Entity doesn't exist
+;;   (declare-const entity_property Bool) ; Free variable - BUG!
+;;   ; Solver can set entity_property=true even though entity doesn't exist
+;;
+;; CORRECT approach (link property to existence):
+;;   (assert (= entity_exists false))     ; Entity doesn't exist
+;;   (declare-const entity_property Bool)
+;;   (assert (=> entity_property entity_exists))  ; If property true, entity must exist
+;;   ; Now: entity_property MUST be false (since entity_exists=false)
+;;
+;; For verification queries about missing entities:
+;; - Add: (assert (=> derived_property_about_X X_exists_in_data))
+;; - This ensures: if X doesn't exist, properties about X are false
+;; - Result: Query about missing data becomes UNSAT (cannot verify)
 
 ;; Declare derived variables
 (declare-const ...)
@@ -607,6 +627,11 @@ Before finalizing, verify:
       * Is this truly UNKNOWN? → Justify why it's not in provided data
     ☐ No facts from data files are left as free/unconstrained variables
     ☐ Uninterpreted functions are linked to ground truth via (=>) constraints
+    ☐ **CRITICAL**: Derived properties are linked to entity existence checks
+      * For each derived property about entity X, check if X_exists_in_data = false
+      * If entity doesn't exist, add: (assert (=> property_about_X X_exists_in_data))
+      * This ensures properties about missing entities must be false
+      * Prevents vacuous truth (SAT result for properties of non-existent entities)
 
 5.3 CORRECTNESS:
     ☐ Logic from Phase 3 supports all operators used
