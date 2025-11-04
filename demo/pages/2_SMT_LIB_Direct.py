@@ -1361,8 +1361,9 @@ Your explanation should:
 Return ONLY the formatted explanation, no preamble."""
 
     try:
+        # Always use Opus for explanation generation (highest quality)
         result_proc = subprocess.run(
-            ["claude", "--print", "--model", selected_model],
+            ["claude", "--print", "--model", "opus"],
             input=prompt,
             capture_output=True,
             text=True,
