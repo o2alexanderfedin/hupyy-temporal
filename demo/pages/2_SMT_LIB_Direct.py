@@ -1366,7 +1366,7 @@ Return ONLY the formatted explanation, no preamble."""
             input=prompt,
             capture_output=True,
             text=True,
-            timeout=30
+            timeout=180  # Increased for complex explanation generation
         )
 
         if result_proc.returncode == 0:
