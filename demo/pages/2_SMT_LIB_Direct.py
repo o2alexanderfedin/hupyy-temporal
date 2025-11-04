@@ -14,6 +14,14 @@ if str(ROOT) not in sys.path:
 import streamlit as st
 import os
 
+# Import unified Claude CLI client
+from ai.claude_client import ClaudeClient
+from config.constants import (
+    TIMEOUT_AI_CONVERSION,
+    TIMEOUT_AI_ERROR_FIXING,
+    TIMEOUT_AI_EXPLANATION
+)
+
 st.set_page_config(page_title="SMT-LIB Direct - Hupyy Temporal", layout="wide")
 
 # Model configuration - can be overridden by environment variable
@@ -951,20 +959,13 @@ BEGIN PHASE 1 NOW."""
     }
 
     try:
-        # Call Hupyy CLI via stdin (increased timeout for 5-phase processing)
-        result = subprocess.run(
-            ["claude", "--print", "--model", selected_model],
-            input=prompt,
-            capture_output=True,
-            text=True,
-            timeout=300  # Increased for multi-phase processing
-        )
-
-        if result.returncode != 0:
-            raise Exception(f"Hupyy CLI failed: {result.stderr}")
-
-        # Extract SMT-LIB from response
-        response = result.stdout.strip()
+        # Call Claude CLI via ClaudeClient (5-phase processing)
+        claude_client = ClaudeClient(default_model=selected_model)
+        response = claude_client.invoke(
+            prompt=prompt,
+            model=selected_model,
+            timeout=TIMEOUT_AI_CONVERSION  # 300s for multi-phase processing
+        ).strip()
 
         # ENHANCED EXTRACTION: Look for "FINAL SMT-LIB CODE:" marker first
         final_marker = "FINAL SMT-LIB CODE:"
@@ -1237,18 +1238,14 @@ CORRECTED SMT-LIB CODE:
 BEGIN ERROR DIAGNOSIS NOW."""
 
     try:
-        result = subprocess.run(
-            ["claude", "-c", "--print", "--model", selected_model],
-            input=prompt,
-            capture_output=True,
-            text=True,
-            timeout=180  # Increased for phase-aware correction
-        )
-
-        if result.returncode != 0:
-            raise Exception(f"Hupyy CLI failed: {result.stderr}")
-
-        response = result.stdout.strip()
+        # Call Claude CLI via ClaudeClient (phase-aware correction)
+        claude_client = ClaudeClient(default_model=selected_model)
+        response = claude_client.invoke(
+            prompt=prompt,
+            model=selected_model,
+            timeout=TIMEOUT_AI_ERROR_FIXING,  # 180s for error correction
+            conversational=True  # Use -c flag
+        ).strip()
 
         # ENHANCED EXTRACTION: Look for "CORRECTED SMT-LIB CODE:" marker first
         corrected_marker = "CORRECTED SMT-LIB CODE:"
@@ -1362,30 +1359,24 @@ Return ONLY the formatted explanation, no preamble."""
 
     try:
         # Always use Opus for explanation generation (highest quality)
-        result_proc = subprocess.run(
-            ["claude", "--print", "--model", "opus"],
-            input=prompt,
-            capture_output=True,
-            text=True,
-            timeout=180  # Increased for complex explanation generation
-        )
-
-        if result_proc.returncode == 0:
-            explanation = result_proc.stdout.strip()
-            # Clean up any markdown code blocks
-            if "```" in explanation:
-                parts = explanation.split("```")
-                for part in parts:
-                    if part.strip() and not part.strip().startswith(('python', 'json', 'text', 'smt2', 'lisp')):
-                        return part.strip()
-            return explanation
-        else:
-            return f"⚠️ Could not generate explanation: {result_proc.stderr}"
-    except subprocess.TimeoutExpired:
-        return "⚠️ Explanation generation timed out"
-    except FileNotFoundError:
-        return "⚠️ Claude CLI not found. Install from https://claude.com/claude-code"
+        claude_client = ClaudeClient()
+        explanation = claude_client.invoke(
+            prompt=prompt,
+            model="opus",  # Always use opus for explanations
+            timeout=TIMEOUT_AI_EXPLANATION  # 180s for complex explanations
+        ).strip()
+        # Clean up any markdown code blocks
+        if "```" in explanation:
+            parts = explanation.split("```")
+            for part in parts:
+                if part.strip() and not part.strip().startswith(('python', 'json', 'text', 'smt2', 'lisp')):
+                    return part.strip()
+        return explanation
     except Exception as e:
+        # Handle all errors (ClaudeClientError, ClaudeTimeoutError, etc.)
+        from ai.claude_client import ClaudeTimeoutError
+        if isinstance(e, ClaudeTimeoutError):
+            return "⚠️ Explanation generation timed out"
         return f"⚠️ Error generating explanation: {str(e)}"
 
 # Model Selection
