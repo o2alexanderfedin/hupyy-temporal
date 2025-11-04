@@ -1039,7 +1039,8 @@ if st.button("Prove It", type="primary", use_container_width=True):
 
             # Get SMT-LIB code
             if should_use_claude:
-                with st.spinner("🤖 Using Hupyy to extract symbolic constraints..."):
+                # TASK-006: Processing animation with "Huppy, Huppy, Joy, Joy..."
+                with st.spinner("Huppy, Huppy, Joy, Joy... 🎉"):
                     smtlib_code = convert_to_smtlib(user_input)
                     st.success("✓ Extracted symbolic constraints")
                     with st.expander("📄 View Extracted Constraints"):
@@ -1066,8 +1067,8 @@ if st.button("Prove It", type="primary", use_container_width=True):
                 correction_history = []
 
                 while attempt <= MAX_ATTEMPTS:
-                    # Run cvc5
-                    spinner_text = f"Running cvc5 (attempt {attempt}/{MAX_ATTEMPTS})..." if attempt > 1 else "Running cvc5..."
+                    # Run cvc5 with Huppy animation
+                    spinner_text = f"Huppy, Huppy, Joy, Joy... 🎉 (attempt {attempt}/{MAX_ATTEMPTS})" if attempt > 1 else "Huppy, Huppy, Joy, Joy... 🎉"
                     with st.spinner(spinner_text):
                         runner = CVC5Runner()
                         cvc5_result = runner.run(smtlib_code)
@@ -1089,7 +1090,7 @@ if st.button("Prove It", type="primary", use_container_width=True):
                             st.code(result["error"], language="text")
 
                         try:
-                            with st.spinner(f"🔧 Hupyy is fixing the SMT-LIB code (attempt {attempt}/{MAX_ATTEMPTS})..."):
+                            with st.spinner(f"Huppy, Huppy, Joy, Joy... 🔧 Fixing code (attempt {attempt}/{MAX_ATTEMPTS})"):
                                 # Pass original problem and phase outputs for better context
                                 phase_outputs = st.session_state.get('last_phase_outputs', None)
                                 fixed_code = fix_smtlib_with_error(
@@ -1241,7 +1242,7 @@ if st.button("Prove It", type="primary", use_container_width=True):
                     st.markdown("---")
                     st.subheader("📝 Human-Readable Explanation")
 
-                    with st.spinner("Generating explanation with Claude..."):
+                    with st.spinner("Huppy, Huppy, Joy, Joy... 📝 Generating explanation"):
                         explanation = generate_human_explanation(
                             user_input,
                             smtlib_code,
