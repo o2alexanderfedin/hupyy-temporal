@@ -22,10 +22,6 @@ from config.constants import (
     TIMEOUT_AI_EXPLANATION
 )
 
-# Import PDF generation modules
-from reports.pdf_generator import PDFReportGenerator
-from reports.schemas import ReportData, CorrectionRecord
-
 st.set_page_config(page_title="SMT-LIB Direct - Hupyy Temporal", layout="wide")
 
 # Model configuration - can be overridden by environment variable
@@ -102,6 +98,362 @@ def validate_phase_completeness(response: str) -> dict:
         "total_required": len(required_phases)
     }
 
+def sanitize_for_pdf(text) -> str:
+    """Sanitize text for PDF generation by replacing problematic Unicode characters.
+
+    Args:
+        text: Input text that may contain Unicode characters (str, bytes, or bytearray)
+
+    Returns:
+        Sanitized text safe for PDF rendering
+    """
+    if not text:
+        return ""
+
+    # Convert bytes/bytearray to string first
+    if isinstance(text, (bytes, bytearray)):
+        text = text.decode('utf-8', errors='replace')
+
+    # Ensure we have a string
+    if not isinstance(text, str):
+        text = str(text)
+
+    # Replace common Unicode characters with ASCII equivalents
+    replacements = {
+        '\u2018': "'",  # Left single quotation mark
+        '\u2019': "'",  # Right single quotation mark
+        '\u201c': '"',  # Left double quotation mark
+        '\u201d': '"',  # Right double quotation mark
+        '\u2013': '-',  # En dash
+        '\u2014': '--', # Em dash
+        '\u2026': '...', # Horizontal ellipsis
+        '\u00a0': ' ',  # Non-breaking space
+        '\u2022': '*',  # Bullet
+        '\u00b0': ' degrees', # Degree symbol
+        '\u00d7': 'x',  # Multiplication sign
+        '\u2192': '->', # Right arrow
+        '\u2190': '<-', # Left arrow
+        '\u2260': '!=', # Not equal
+        '\u2264': '<=', # Less than or equal
+        '\u2265': '>=', # Greater than or equal
+        '\u221e': 'infinity', # Infinity
+        '\u2200': 'forall',   # For all
+        '\u2203': 'exists',   # Exists
+        '\u2227': 'AND',      # Logical AND
+        '\u2228': 'OR',       # Logical OR
+        '\u00ac': 'NOT',      # Logical NOT
+    }
+
+    result = text
+    for unicode_char, ascii_replacement in replacements.items():
+        result = result.replace(unicode_char, ascii_replacement)
+
+    # Remove any remaining non-ASCII characters
+    result = result.encode('ascii', 'replace').decode('ascii')
+
+    return result
+
+def generate_pdf_report(
+    query_id: str,
+    user_input: str,
+    smtlib_code: str,
+    status: str,
+    cvc5_stdout: str,
+    cvc5_stderr: str,
+    wall_ms: int,
+    model: str = None,
+    phase_outputs: str = None,
+    human_explanation: str = None,
+    correction_history: list = None
+) -> bytes:
+    """Generate comprehensive PDF report for SMT-LIB verification.
+
+    Args:
+        query_id: Unique identifier for this query
+        user_input: Original user input/problem
+        smtlib_code: Generated or provided SMT-LIB code
+        status: Result status (sat/unsat/unknown/error)
+        cvc5_stdout: Standard output from cvc5
+        cvc5_stderr: Standard error from cvc5
+        wall_ms: Wall clock time in milliseconds
+        model: Model output (if SAT)
+        phase_outputs: Complete phase analysis (if AI conversion was used)
+        human_explanation: Human-readable explanation
+        correction_history: List of auto-corrections made
+
+    Returns:
+        PDF file as bytes
+    """
+    from fpdf import FPDF
+    from datetime import datetime
+    import sys
+
+    # DETAILED LOGGING - START
+    print(f"[PDF DEBUG] ========== PDF Generation Started ==========", file=sys.stderr)
+    print(f"[PDF DEBUG] query_id: {query_id}", file=sys.stderr)
+    print(f"[PDF DEBUG] user_input type: {type(user_input)}, len: {len(user_input) if user_input else 0}", file=sys.stderr)
+    print(f"[PDF DEBUG] smtlib_code type: {type(smtlib_code)}, len: {len(smtlib_code) if smtlib_code else 0}", file=sys.stderr)
+    print(f"[PDF DEBUG] status: {status}", file=sys.stderr)
+    print(f"[PDF DEBUG] cvc5_stdout type: {type(cvc5_stdout)}, len: {len(cvc5_stdout) if cvc5_stdout else 0}", file=sys.stderr)
+    print(f"[PDF DEBUG] cvc5_stderr type: {type(cvc5_stderr)}, len: {len(cvc5_stderr) if cvc5_stderr else 0}", file=sys.stderr)
+    print(f"[PDF DEBUG] model type: {type(model)}, len: {len(model) if model else 0}", file=sys.stderr)
+    print(f"[PDF DEBUG] phase_outputs type: {type(phase_outputs)}, len: {len(phase_outputs) if phase_outputs else 0}", file=sys.stderr)
+    print(f"[PDF DEBUG] human_explanation type: {type(human_explanation)}, len: {len(human_explanation) if human_explanation else 0}", file=sys.stderr)
+    print(f"[PDF DEBUG] correction_history type: {type(correction_history)}", file=sys.stderr)
+
+    # Sanitize all text inputs with error handling
+    print(f"[PDF DEBUG] Starting sanitization of user_input...", file=sys.stderr)
+    try:
+        user_input = sanitize_for_pdf(user_input)
+        print(f"[PDF DEBUG] user_input sanitized OK, new len: {len(user_input)}", file=sys.stderr)
+    except Exception as e:
+        print(f"[PDF DEBUG] ERROR sanitizing user_input: {e}", file=sys.stderr)
+        raise Exception(f"Error sanitizing user_input (type: {type(user_input)}): {e}")
+
+    print(f"[PDF DEBUG] Starting sanitization of smtlib_code...", file=sys.stderr)
+    try:
+        smtlib_code = sanitize_for_pdf(smtlib_code)
+        print(f"[PDF DEBUG] smtlib_code sanitized OK, new len: {len(smtlib_code)}", file=sys.stderr)
+    except Exception as e:
+        print(f"[PDF DEBUG] ERROR sanitizing smtlib_code: {e}", file=sys.stderr)
+        raise Exception(f"Error sanitizing smtlib_code (type: {type(smtlib_code)}): {e}")
+
+    print(f"[PDF DEBUG] Starting sanitization of cvc5_stdout...", file=sys.stderr)
+    try:
+        cvc5_stdout = sanitize_for_pdf(cvc5_stdout)
+        print(f"[PDF DEBUG] cvc5_stdout sanitized OK, new len: {len(cvc5_stdout)}", file=sys.stderr)
+    except Exception as e:
+        print(f"[PDF DEBUG] ERROR sanitizing cvc5_stdout: {e}", file=sys.stderr)
+        raise Exception(f"Error sanitizing cvc5_stdout (type: {type(cvc5_stdout)}): {e}")
+
+    print(f"[PDF DEBUG] Starting sanitization of cvc5_stderr...", file=sys.stderr)
+    cvc5_stderr = sanitize_for_pdf(cvc5_stderr) if cvc5_stderr else ""
+    print(f"[PDF DEBUG] cvc5_stderr sanitized OK, new len: {len(cvc5_stderr)}", file=sys.stderr)
+
+    if model:
+        print(f"[PDF DEBUG] Starting sanitization of model...", file=sys.stderr)
+        try:
+            model = sanitize_for_pdf(model)
+            print(f"[PDF DEBUG] model sanitized OK, new len: {len(model)}", file=sys.stderr)
+        except Exception as e:
+            print(f"[PDF DEBUG] ERROR sanitizing model: {e}", file=sys.stderr)
+            raise Exception(f"Error sanitizing model (type: {type(model)}): {e}")
+
+    if phase_outputs:
+        print(f"[PDF DEBUG] Starting sanitization of phase_outputs...", file=sys.stderr)
+        try:
+            phase_outputs = sanitize_for_pdf(phase_outputs)
+            print(f"[PDF DEBUG] phase_outputs sanitized OK, new len: {len(phase_outputs)}", file=sys.stderr)
+        except Exception as e:
+            print(f"[PDF DEBUG] ERROR sanitizing phase_outputs: {e}", file=sys.stderr)
+            raise Exception(f"Error sanitizing phase_outputs (type: {type(phase_outputs)}): {e}")
+
+    if human_explanation:
+        print(f"[PDF DEBUG] Starting sanitization of human_explanation...", file=sys.stderr)
+        try:
+            human_explanation = sanitize_for_pdf(human_explanation)
+            print(f"[PDF DEBUG] human_explanation sanitized OK, new len: {len(human_explanation)}", file=sys.stderr)
+        except Exception as e:
+            print(f"[PDF DEBUG] ERROR sanitizing human_explanation: {e}", file=sys.stderr)
+            raise Exception(f"Error sanitizing human_explanation (type: {type(human_explanation)}): {e}")
+
+    # Create PDF object
+    print(f"[PDF DEBUG] All sanitization complete, creating PDF object...", file=sys.stderr)
+    try:
+        pdf = FPDF()
+        print(f"[PDF DEBUG] FPDF object created", file=sys.stderr)
+        pdf.add_page()
+        print(f"[PDF DEBUG] Page added", file=sys.stderr)
+        pdf.set_auto_page_break(auto=True, margin=15)
+        print(f"[PDF DEBUG] Auto page break set", file=sys.stderr)
+    except Exception as e:
+        print(f"[PDF DEBUG] ERROR creating PDF object: {e}", file=sys.stderr)
+        raise
+
+    # Title
+    print(f"[PDF DEBUG] Adding title section...", file=sys.stderr)
+    try:
+        pdf.set_font("Helvetica", "B", 20)
+        pdf.cell(0, 10, "HUPYY TEMPORAL - SMT-LIB VERIFICATION REPORT", ln=True, align="C")
+        pdf.ln(5)
+        print(f"[PDF DEBUG] Title section added OK", file=sys.stderr)
+    except Exception as e:
+        print(f"[PDF DEBUG] ERROR adding title: {e}", file=sys.stderr)
+        raise
+
+    # Metadata
+    print(f"[PDF DEBUG] Adding metadata section...", file=sys.stderr)
+    try:
+        pdf.set_font("Helvetica", "", 10)
+        pdf.cell(0, 6, f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", ln=True)
+        pdf.cell(0, 6, f"Query ID: {query_id}", ln=True)
+        pdf.cell(0, 6, f"Status: {status.upper()}", ln=True)
+        pdf.cell(0, 6, f"Execution Time: {wall_ms} ms", ln=True)
+        pdf.ln(10)
+        print(f"[PDF DEBUG] Metadata section added OK", file=sys.stderr)
+    except Exception as e:
+        print(f"[PDF DEBUG] ERROR adding metadata: {e}", file=sys.stderr)
+        raise
+
+    # Section 1: Problem Statement
+    print(f"[PDF DEBUG] Adding problem statement section...", file=sys.stderr)
+    try:
+        pdf.set_font("Helvetica", "B", 14)
+        pdf.cell(0, 8, "1. PROBLEM STATEMENT", ln=True)
+        pdf.set_font("Helvetica", "", 10)
+        pdf.ln(2)
+
+        # Wrap long text
+        problem_text = user_input[:2000] if len(user_input) > 2000 else user_input
+        pdf.multi_cell(0, 5, problem_text)
+        pdf.ln(8)
+        print(f"[PDF DEBUG] Problem statement section added OK", file=sys.stderr)
+    except Exception as e:
+        print(f"[PDF DEBUG] ERROR adding problem statement: {e}", file=sys.stderr)
+        raise
+
+    # Section 2: Phase Analysis (if available)
+    if phase_outputs:
+        pdf.set_font("Helvetica", "B", 14)
+        pdf.cell(0, 8, "2. PHASE ANALYSIS (AI CONVERSION)", ln=True)
+        pdf.set_font("Helvetica", "", 9)
+        pdf.ln(2)
+
+        # Truncate if too long
+        phase_text = phase_outputs[:8000] if len(phase_outputs) > 8000 else phase_outputs
+        pdf.multi_cell(0, 4, phase_text)
+        pdf.ln(8)
+
+        section_num = 3
+    else:
+        section_num = 2
+
+    # Section: Generated SMT-LIB Code
+    pdf.set_font("Helvetica", "B", 14)
+    pdf.cell(0, 8, f"{section_num}. GENERATED SMT-LIB CODE", ln=True)
+    pdf.set_font("Courier", "", 8)
+    pdf.ln(2)
+
+    # Extract logic
+    logic = "Unknown"
+    if "(set-logic" in smtlib_code:
+        logic_start = smtlib_code.find("(set-logic") + 11
+        logic_end = smtlib_code.find(")", logic_start)
+        if logic_end > logic_start:
+            logic = smtlib_code[logic_start:logic_end].strip()
+
+    pdf.set_font("Helvetica", "", 10)
+    pdf.cell(0, 6, f"Logic: {logic}", ln=True)
+    pdf.ln(2)
+
+    pdf.set_font("Courier", "", 7)
+    code_text = smtlib_code[:6000] if len(smtlib_code) > 6000 else smtlib_code
+    pdf.multi_cell(0, 3.5, code_text)
+    pdf.ln(8)
+
+    section_num += 1
+
+    # Section: Verification Results
+    pdf.set_font("Helvetica", "B", 14)
+    pdf.cell(0, 8, f"{section_num}. VERIFICATION RESULTS", ln=True)
+    pdf.set_font("Helvetica", "", 10)
+    pdf.ln(2)
+
+    pdf.cell(0, 6, f"Status: {status.upper()}", ln=True)
+    pdf.cell(0, 6, f"Wall Time: {wall_ms} ms", ln=True)
+    pdf.ln(4)
+
+    if model and status.lower() == "sat":
+        pdf.set_font("Helvetica", "B", 11)
+        pdf.cell(0, 6, "Model (Satisfying Assignment):", ln=True)
+        pdf.set_font("Courier", "", 8)
+        model_text = model[:3000] if len(model) > 3000 else model
+        pdf.multi_cell(0, 4, model_text)
+        pdf.ln(4)
+
+    section_num += 1
+
+    # Section: Human-Readable Explanation
+    if human_explanation:
+        pdf.set_font("Helvetica", "B", 14)
+        pdf.cell(0, 8, f"{section_num}. HUMAN-READABLE EXPLANATION", ln=True)
+        pdf.set_font("Helvetica", "", 10)
+        pdf.ln(2)
+
+        explanation_text = human_explanation[:3000] if len(human_explanation) > 3000 else human_explanation
+        pdf.multi_cell(0, 5, explanation_text)
+        pdf.ln(8)
+
+        section_num += 1
+
+    # Section: Correction History (if TDD loop was used)
+    if correction_history and len(correction_history) > 0:
+        pdf.set_font("Helvetica", "B", 14)
+        pdf.cell(0, 8, f"{section_num}. AUTO-CORRECTION HISTORY", ln=True)
+        pdf.set_font("Helvetica", "", 10)
+        pdf.ln(2)
+
+        pdf.cell(0, 6, f"Total corrections: {len(correction_history)}", ln=True)
+        pdf.ln(2)
+
+        for i, correction in enumerate(correction_history):
+            pdf.set_font("Helvetica", "B", 10)
+            pdf.cell(0, 6, f"Correction {i+1}:", ln=True)
+            pdf.set_font("Helvetica", "", 9)
+            error_text = correction.get('error', 'Unknown error')[:500]
+            pdf.multi_cell(0, 4, f"Error: {error_text}")
+            pdf.ln(2)
+
+        pdf.ln(6)
+        section_num += 1
+
+    # Section: Technical Details (Appendix)
+    pdf.add_page()
+    pdf.set_font("Helvetica", "B", 14)
+    pdf.cell(0, 8, f"{section_num}. TECHNICAL DETAILS (APPENDIX)", ln=True)
+    pdf.set_font("Helvetica", "", 9)
+    pdf.ln(2)
+
+    pdf.set_font("Helvetica", "B", 11)
+    pdf.cell(0, 6, "cvc5 Standard Output:", ln=True)
+    pdf.set_font("Courier", "", 7)
+    stdout_text = cvc5_stdout[:3000] if len(cvc5_stdout) > 3000 else cvc5_stdout
+    pdf.multi_cell(0, 3.5, stdout_text)
+    pdf.ln(4)
+
+    if cvc5_stderr:
+        pdf.set_font("Helvetica", "B", 11)
+        pdf.cell(0, 6, "cvc5 Standard Error:", ln=True)
+        pdf.set_font("Courier", "", 7)
+        stderr_text = cvc5_stderr[:1000] if len(cvc5_stderr) > 1000 else cvc5_stderr
+        pdf.multi_cell(0, 3.5, stderr_text)
+
+    # Footer
+    print(f"[PDF DEBUG] Adding footer...", file=sys.stderr)
+    try:
+        pdf.ln(10)
+        pdf.set_font("Helvetica", "I", 8)
+        pdf.cell(0, 6, "Generated by Hupyy Temporal - Hupyy Powered SMT Verification", ln=True, align="C")
+        print(f"[PDF DEBUG] Footer added OK", file=sys.stderr)
+    except Exception as e:
+        print(f"[PDF DEBUG] ERROR adding footer: {e}", file=sys.stderr)
+        raise
+
+    # Return PDF as bytes
+    print(f"[PDF DEBUG] Generating final PDF output...", file=sys.stderr)
+    try:
+        pdf_output = pdf.output(dest='S')
+        print(f"[PDF DEBUG] PDF output generated, type: {type(pdf_output)}, len: {len(pdf_output) if pdf_output else 0}", file=sys.stderr)
+
+        pdf_bytes = pdf_output.encode('latin1')
+        print(f"[PDF DEBUG] PDF encoded to bytes, len: {len(pdf_bytes)}", file=sys.stderr)
+        print(f"[PDF DEBUG] ========== PDF Generation Complete ==========", file=sys.stderr)
+        return pdf_bytes
+    except Exception as e:
+        print(f"[PDF DEBUG] ERROR generating final PDF output: {e}", file=sys.stderr)
+        print(f"[PDF DEBUG] Error type: {type(e).__name__}", file=sys.stderr)
+        print(f"[PDF DEBUG] Error details: {str(e)}", file=sys.stderr)
+        raise
 
 st.markdown("""
 This page implements the **SMT-LIB Direct Generation** approach from the multi-theory documentation.
@@ -1266,20 +1618,7 @@ if st.button("▶️ Run cvc5", type="primary", use_container_width=True):
 
                     # Generate PDF
                     try:
-                        # Convert correction history to CorrectionRecord objects
-                        correction_records = []
-                        if correction_history:
-                            for i, correction in enumerate(correction_history):
-                                correction_records.append(
-                                    CorrectionRecord(
-                                        attempt=i + 1,
-                                        error=correction.get('error', 'Unknown error'),
-                                        fix_applied=correction.get('fix_applied', 'Fix applied')
-                                    )
-                                )
-
-                        # Create report data
-                        report_data = ReportData(
+                        pdf_bytes = generate_pdf_report(
                             query_id=query_id,
                             user_input=user_input,
                             smtlib_code=smtlib_code,
@@ -1290,12 +1629,8 @@ if st.button("▶️ Run cvc5", type="primary", use_container_width=True):
                             model=final_result.get("model"),
                             phase_outputs=phase_outputs_text,
                             human_explanation=explanation_text,
-                            correction_history=correction_records
+                            correction_history=correction_history
                         )
-
-                        # Generate PDF
-                        generator = PDFReportGenerator()
-                        pdf_bytes = generator.generate(report_data)
 
                         # Save to reports directory
                         from pathlib import Path
