@@ -1191,10 +1191,48 @@ if st.button("Prove It", type="primary", use_container_width=True):
                         </div>
                     """, unsafe_allow_html=True)
 
-                    # Keep model expander for SAT results
-                    if final_result["status"] == "sat" and final_result["model"]:
-                        with st.expander("🔍 View Model"):
-                            st.code(final_result["model"], language="lisp")
+                    # TASK-004 & TASK-005: Add "SHOW ME THE PROOF" button with styled panel
+                    # Initialize session state for proof visibility
+                    if 'show_proof_panel' not in st.session_state:
+                        st.session_state.show_proof_panel = False
+
+                    # Toggle button with Salesforce-style gradient
+                    col1, col2, col3 = st.columns([1, 2, 1])
+                    with col2:
+                        if st.button("SHOW ME THE PROOF ↓" if not st.session_state.show_proof_panel else "HIDE PROOF ↑",
+                                   use_container_width=True,
+                                   key="proof_toggle"):
+                            st.session_state.show_proof_panel = not st.session_state.show_proof_panel
+
+                    # Show proof panel when toggled
+                    if st.session_state.show_proof_panel:
+                        proof_content = ""
+                        if final_result["status"] == "sat" and final_result["model"]:
+                            proof_content = f"**Counterexample Model (Witness):**\n\n{final_result['model']}"
+                        elif final_result["status"] == "unsat":
+                            proof_content = f"**Minimal UNSAT Core (SMT-LIB):**\n\n{smtlib_code}"
+                        else:
+                            proof_content = "No proof or witness available."
+
+                        # Frosted glass proof panel (TASK-005)
+                        st.markdown(f"""
+                            <div style="
+                                background: rgba(255, 255, 255, 0.85);
+                                backdrop-filter: blur(10px);
+                                border: 1px solid rgba(200, 212, 226, 0.5);
+                                border-radius: 12px;
+                                padding: 24px;
+                                margin: 16px 0;
+                                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+                                font-family: 'SF Mono', 'Monaco', 'Courier New', monospace;
+                                font-size: 0.875rem;
+                                color: #333333;
+                                white-space: pre-wrap;
+                                word-break: break-word;
+                            ">
+                                {proof_content.replace('<', '&lt;').replace('>', '&gt;')}
+                            </div>
+                        """, unsafe_allow_html=True)
                 else:
                     st.warning(f"⚠️ **Unexpected status: {final_result['status']}**  \n*Wall time:* `{final_wall_ms} ms`")
 
@@ -1214,28 +1252,23 @@ if st.button("Prove It", type="primary", use_container_width=True):
                         # Display explanation in a nice box
                         st.markdown(f"```\n{explanation}\n```")
 
-                # Display Proof / Witness section
-                st.subheader("Proof / Witness")
+                # Download buttons for proof/model (kept separate from toggle panel)
                 if final_result["status"] == "unsat":
-                    st.markdown("**Minimal UNSAT core (SMT-LIB):**")
-                    st.code(smtlib_code, language="lisp")
                     st.download_button(
-                        "Download proof",
+                        "📥 Download Proof (UNSAT Core)",
                         smtlib_code.encode("utf-8"),
                         file_name="unsat_core.smt2",
-                        mime="text/plain"
+                        mime="text/plain",
+                        use_container_width=False
                     )
                 elif final_result["status"] == "sat" and final_result["model"]:
-                    st.markdown("**Counterexample model (witness):**")
-                    st.code(final_result["model"], language="lisp")
                     st.download_button(
-                        "Download model",
+                        "📥 Download Model (Witness)",
                         final_result["model"].encode("utf-8"),
                         file_name="model.txt",
-                        mime="text/plain"
+                        mime="text/plain",
+                        use_container_width=False
                     )
-                else:
-                    st.write("No proof or witness available.")
 
                 # Show correction history if any
                 if len(correction_history) > 0:
