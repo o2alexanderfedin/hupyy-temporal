@@ -1,0 +1,3 @@
+Did E-6112 meet the ‘2FA within 10 minutes before badge scan’ requirement for the 21:05 entry to Room B2?
+
+The additional necessary data is in /Users/alexanderfedin/Projects/hapyy/cofounder/hupyy-temporal/data/free-form/adhoc/policy-pack/ dir

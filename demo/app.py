@@ -4,7 +4,9 @@ import subprocess
 import tempfile
 import time
 import json
+import logging
 from pathlib import Path
+from datetime import datetime
 
 # Make sure we can import engine/*
 ROOT = Path(__file__).resolve().parent.parent  # demo/app.py -> demo -> hupyy-temporal
@@ -27,6 +29,31 @@ from solvers.cvc5_runner import CVC5Runner, CVC5Result
 from reports.pdf_generator import PDFReportGenerator
 from reports.schemas import ReportData, CorrectionRecord
 from demo.styles import inject_css
+
+# ============================================================================
+# LOGGING CONFIGURATION
+# ============================================================================
+# Configure logging with timestamps and detailed formatting
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s [%(levelname)s] [%(name)s:%(lineno)d] %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S',
+    handlers=[
+        logging.StreamHandler(sys.stderr),  # Output to stderr for Streamlit
+        logging.FileHandler(ROOT / 'logs' / f'hupyy_{datetime.now().strftime("%Y%m%d")}.log', mode='a')
+    ]
+)
+
+# Create logger for this module
+logger = logging.getLogger(__name__)
+logger.info("=" * 80)
+logger.info("HUPYY TEMPORAL APPLICATION STARTING")
+logger.info(f"ROOT directory: {ROOT}")
+logger.info(f"Python version: {sys.version}")
+logger.info("=" * 80)
+
+# Ensure logs directory exists
+(ROOT / 'logs').mkdir(exist_ok=True)
 
 st.set_page_config(page_title="Symbolic Constraints - Hupyy Temporal", layout="wide")
 
@@ -95,6 +122,7 @@ def validate_phase_completeness(response: str) -> dict:
             - missing_phases: list - List of missing phase numbers
             - found_phases: list - List of found phase numbers
     """
+    logger.info("Validating phase completeness in AI response")
     required_phases = [1, 2, 3, 4, 5]
     found_phases = []
 
@@ -102,16 +130,24 @@ def validate_phase_completeness(response: str) -> dict:
         phase_marker = f"## PHASE {phase_num}:"
         if phase_marker in response or f"PHASE {phase_num}" in response:
             found_phases.append(phase_num)
+            logger.debug(f"Found phase {phase_num}")
 
     missing_phases = [p for p in required_phases if p not in found_phases]
 
-    return {
+    result = {
         "complete": len(missing_phases) == 0,
         "missing_phases": missing_phases,
         "found_phases": found_phases,
         "total_found": len(found_phases),
         "total_required": len(required_phases)
     }
+
+    if result["complete"]:
+        logger.info(f"✓ All {len(required_phases)} phases found")
+    else:
+        logger.warning(f"✗ Missing phases: {missing_phases}. Found: {found_phases}")
+
+    return result
 
 
 # Removed technical description - cleaner UI per spec
@@ -189,9 +225,14 @@ END OF REFERENCE DATA FILES
 
 def convert_to_smtlib(text: str) -> str:
     """Use Hupyy CLI to convert natural language to SMT-LIB v2.7 format."""
+    logger.info("=" * 60)
+    logger.info("STARTING SMT-LIB GENERATION (5-PHASE PROMPT)")
+    logger.info(f"Input length: {len(text)} characters")
 
     # Load external files if referenced
     enhanced_text = load_external_files(text)
+    if len(enhanced_text) > len(text):
+        logger.info(f"External files loaded: +{len(enhanced_text) - len(text)} characters")
 
     prompt = f"""You are a formal verification expert converting problems to SMT-LIB v2.7 format.
 
@@ -661,12 +702,20 @@ BEGIN PHASE 1 NOW."""
 
     try:
         # Call Claude CLI via ClaudeClient (5-phase processing)
+        logger.info(f"Invoking Claude ({selected_model}) for 5-phase SMT-LIB generation")
+        logger.info(f"Timeout: {TIMEOUT_AI_CONVERSION}s")
+        start_time = time.time()
+
         claude_client = ClaudeClient(default_model=selected_model)
         response = claude_client.invoke(
             prompt=prompt,
             model=selected_model,
             timeout=TIMEOUT_AI_CONVERSION  # 300s for multi-phase processing
         ).strip()
+
+        elapsed_time = time.time() - start_time
+        logger.info(f"✓ Claude response received in {elapsed_time:.2f}s")
+        logger.info(f"Response length: {len(response)} characters")
 
         # ENHANCED EXTRACTION: Look for "FINAL SMT-LIB CODE:" marker first
         final_marker = "FINAL SMT-LIB CODE:"
@@ -733,15 +782,22 @@ BEGIN PHASE 1 NOW."""
         # Strip any remaining leading/trailing whitespace
         smtlib_code = smtlib_code.strip()
 
+        logger.info(f"SMT-LIB code extracted: {len(smtlib_code)} characters")
+        logger.debug(f"Code preview: {smtlib_code[:200]}...")
+
         # VALIDATION: Basic syntax check
+        logger.info("Validating SMT-LIB syntax...")
         if not smtlib_code.startswith('('):
+            logger.error(f"Validation failed: code doesn't start with '('")
             raise Exception(f"SMT-LIB code doesn't start with '(': {smtlib_code[:50]}")
 
         if not smtlib_code.rstrip().endswith(')'):
+            logger.error(f"Validation failed: code doesn't end with ')'")
             raise Exception(f"SMT-LIB code doesn't end with ')': {smtlib_code[-50:]}")
 
         # Case-insensitive check for set-logic
         if '(set-logic' not in smtlib_code.lower():
+            logger.error("Validation failed: missing (set-logic ...) declaration")
             # Store response for debugging
             import streamlit as st
             st.session_state['last_conversion_error'] = {
@@ -754,7 +810,10 @@ BEGIN PHASE 1 NOW."""
             )
 
         if '(check-sat)' not in smtlib_code.lower():
+            logger.error("Validation failed: missing (check-sat) command")
             raise Exception("SMT-LIB code missing (check-sat) command")
+
+        logger.info("✓ SMT-LIB syntax validation passed")
 
         # STORE PHASE OUTPUTS for debugging (will be used in UI)
         # Store the full response including all phase analysis
@@ -762,12 +821,18 @@ BEGIN PHASE 1 NOW."""
         import streamlit as st
         st.session_state['last_phase_outputs'] = response
         st.session_state['last_extracted_code'] = smtlib_code  # For debugging
+        logger.info("Phase outputs stored in session_state")
 
+        logger.info("=" * 60)
+        logger.info("SMT-LIB GENERATION COMPLETE")
+        logger.info("=" * 60)
         return smtlib_code
 
     except subprocess.TimeoutExpired:
+        logger.error("SMT-LIB generation timed out")
         raise Exception("Hupyy CLI timed out after 5 minutes. The problem may be too complex. Try simplifying it or breaking it into smaller parts.")
     except FileNotFoundError:
+        logger.error("Hupyy CLI executable not found")
         raise Exception("Hupyy CLI not found. Please install it from https://claude.com/claude-code")
     except Exception as e:
         raise Exception(f"Failed to convert to SMT-LIB: {str(e)}")
@@ -987,6 +1052,11 @@ BEGIN ERROR DIAGNOSIS NOW."""
 
 def generate_human_explanation(user_input: str, smtlib_code: str, status: str, cvc5_output: str) -> str:
     """Generate human-readable explanation using Claude."""
+    logger.info("=" * 60)
+    logger.info("GENERATING HUMAN EXPLANATION")
+    logger.info(f"Status: {status}")
+    logger.info(f"User input length: {len(user_input)} characters")
+    logger.info(f"SMT-LIB code length: {len(smtlib_code)} characters")
 
     status_upper = status.upper()
 
@@ -1031,24 +1101,44 @@ Return ONLY the formatted explanation, no preamble."""
 
     try:
         # Always use Opus for explanation generation (highest quality)
+        logger.info("Invoking Claude (opus) for explanation generation")
+        logger.info(f"Timeout: {TIMEOUT_AI_EXPLANATION}s")
+        start_time = time.time()
+
         claude_client = ClaudeClient()
         explanation = claude_client.invoke(
             prompt=prompt,
             model="opus",  # Always use opus for explanations
             timeout=TIMEOUT_AI_EXPLANATION  # 180s for complex explanations
         ).strip()
+
+        elapsed = time.time() - start_time
+        logger.info(f"✓ Explanation generated in {elapsed:.2f}s")
+        logger.info(f"Explanation length: {len(explanation)} characters")
+
         # Clean up any markdown code blocks
         if "```" in explanation:
+            logger.debug("Cleaning up markdown code blocks from explanation")
             parts = explanation.split("```")
             for part in parts:
                 if part.strip() and not part.strip().startswith(('python', 'json', 'text', 'smt2', 'lisp')):
+                    logger.info("=" * 60)
+                    logger.info("EXPLANATION GENERATION COMPLETE")
+                    logger.info("=" * 60)
                     return part.strip()
+
+        logger.info("=" * 60)
+        logger.info("EXPLANATION GENERATION COMPLETE")
+        logger.info("=" * 60)
         return explanation
+
     except Exception as e:
         # Handle all errors (ClaudeClientError, ClaudeTimeoutError, etc.)
         from ai.claude_client import ClaudeTimeoutError
         if isinstance(e, ClaudeTimeoutError):
+            logger.error("Explanation generation timed out")
             return "⚠️ Explanation generation timed out"
+        logger.error(f"Error generating explanation: {str(e)}")
         return f"⚠️ Error generating explanation: {str(e)}"
 
 # Model Selection
@@ -1120,24 +1210,43 @@ if st.button("Prove It", type="primary", use_container_width=True):
                 final_wall_ms = None
                 correction_history = []
 
+                logger.info("=" * 60)
+                logger.info("STARTING CVC5 EXECUTION LOOP (TDD MODE)")
+                logger.info(f"Max attempts: {MAX_ATTEMPTS}")
+                logger.info(f"Auto-fix enabled: {auto_fix_errors}")
+                logger.info("=" * 60)
+
                 while attempt <= MAX_ATTEMPTS:
                     # Run cvc5 with Huppy animation
+                    logger.info(f"--- Attempt {attempt}/{MAX_ATTEMPTS} ---")
+                    logger.info(f"SMT-LIB code length: {len(smtlib_code)} characters")
+
                     spinner_text = f"Huppy, Huppy, Joy, Joy... 🎉 (attempt {attempt}/{MAX_ATTEMPTS})" if attempt > 1 else "Huppy, Huppy, Joy, Joy... 🎉"
                     with st.spinner(spinner_text):
                         runner = CVC5Runner()
+                        logger.info("Executing cvc5...")
+                        start_time = time.time()
                         cvc5_result = runner.run(smtlib_code)
+                        elapsed = time.time() - start_time
+                        logger.info(f"✓ cvc5 execution complete in {elapsed:.2f}s")
 
                     # Parse results
                     result = parse_cvc5_output(cvc5_result.stdout, cvc5_result.stderr)
+                    logger.info(f"Result status: {result['status']}")
+                    logger.info(f"Has error: {result['has_error']}")
+                    if result['has_error']:
+                        logger.warning(f"Error detected: {result['error'][:200]}...")
 
                     # Save final results
                     final_result = result
                     final_stdout = cvc5_result.stdout
                     final_stderr = cvc5_result.stderr
                     final_wall_ms = cvc5_result.wall_time_ms
+                    logger.info(f"Wall time: {final_wall_ms}ms")
 
                     # Check if we have an error and should try to fix it
                     if result["has_error"] and auto_fix_errors and attempt < MAX_ATTEMPTS:
+                        logger.info(f"Attempting auto-fix for error in attempt {attempt}")
                         st.warning(f"⚠️ Attempt {attempt} failed with error. Asking Hupyy to fix...")
 
                         with st.expander(f"🔍 Error from attempt {attempt}"):
@@ -1147,11 +1256,16 @@ if st.button("Prove It", type="primary", use_container_width=True):
                             with st.spinner(f"Huppy, Huppy, Joy, Joy... 🔧 Fixing code (attempt {attempt}/{MAX_ATTEMPTS})"):
                                 # Pass original problem and phase outputs for better context
                                 phase_outputs = st.session_state.get('last_phase_outputs', None)
+                                logger.info("Calling fix_smtlib_with_error...")
+                                start_fix_time = time.time()
                                 fixed_code = fix_smtlib_with_error(
                                     result["error"],
                                     user_input,
                                     phase_outputs
                                 )
+                                fix_elapsed = time.time() - start_fix_time
+                                logger.info(f"✓ Fix generated in {fix_elapsed:.2f}s")
+                                logger.info(f"Fixed code length: {len(fixed_code)} characters")
 
                             # Show what was corrected
                             correction_history.append({
@@ -1159,6 +1273,7 @@ if st.button("Prove It", type="primary", use_container_width=True):
                                 "error": result["error"],
                                 "fixed_code": fixed_code
                             })
+                            logger.info(f"Correction added to history (total: {len(correction_history)})")
 
                             st.info(f"✓ Hupyy extracted corrected symbolic constraints")
                             with st.expander(f"📄 View corrected constraints (attempt {attempt + 1})"):
@@ -1167,13 +1282,19 @@ if st.button("Prove It", type="primary", use_container_width=True):
                             # Use fixed code for next attempt
                             smtlib_code = fixed_code
                             attempt += 1
+                            logger.info(f"Proceeding to attempt {attempt}")
                             continue
 
                         except Exception as fix_error:
+                            logger.error(f"Auto-fix failed: {str(fix_error)}")
                             st.error(f"❌ Failed to auto-fix: {fix_error}")
                             break
                     else:
                         # Success or no more retries
+                        if result["has_error"]:
+                            logger.warning(f"Exiting loop with error after {attempt} attempts")
+                        else:
+                            logger.info(f"✓ Success! Exiting loop after {attempt} attempts")
                         break
 
                 # Type narrowing: loop always runs at least once
@@ -1183,6 +1304,7 @@ if st.button("Prove It", type="primary", use_container_width=True):
                 assert final_wall_ms is not None
 
                 # BUG FIX: Store results in session_state so they persist across reruns
+                logger.info("Storing results in session_state...")
                 st.session_state['last_result'] = final_result
                 st.session_state['last_smtlib_code'] = smtlib_code
                 st.session_state['last_wall_ms'] = final_wall_ms
@@ -1190,6 +1312,10 @@ if st.button("Prove It", type="primary", use_container_width=True):
                 st.session_state['last_stdout'] = final_stdout
                 st.session_state['last_stderr'] = final_stderr
                 st.session_state['last_user_input'] = user_input
+                logger.info(f"✓ Results stored: status={final_result['status']}, corrections={len(correction_history)}")
+                logger.info("=" * 60)
+                logger.info("CVC5 EXECUTION LOOP COMPLETE")
+                logger.info("=" * 60)
 
         except Exception as e:
             st.error(f"❌ Error: {e}")
@@ -1349,9 +1475,16 @@ if 'last_result' in st.session_state:
             query_id = f"query_{int(time.time())}"
 
             # Get explanation if available from session_state
+            logger.info("=" * 60)
+            logger.info("GENERATING PDF REPORT")
+            logger.info(f"Query ID: {query_id}")
+
             explanation_text = None
             if not final_result["has_error"]:
                 explanation_text = st.session_state.get('last_explanation', None)
+                logger.info(f"Explanation retrieved from session_state: {len(explanation_text) if explanation_text else 0} chars")
+            else:
+                logger.info("Skipping explanation (error result)")
 
             try:
                 # Prepare correction records
@@ -1362,8 +1495,10 @@ if 'last_result' in st.session_state:
                         error=corr.get("error", ""),
                         fix_applied=corr.get("fixed_code", "")
                     ))
+                logger.info(f"Prepared {len(correction_records)} correction records")
 
                 # Create report data
+                logger.info("Creating ReportData object...")
                 report_data = ReportData(
                     query_id=query_id,
                     user_input=user_input,
@@ -1376,16 +1511,23 @@ if 'last_result' in st.session_state:
                     human_explanation=explanation_text,
                     correction_history=correction_records
                 )
+                logger.info("✓ ReportData object created")
 
                 # Generate PDF
+                logger.info("Generating PDF with PDFReportGenerator...")
+                start_time = time.time()
                 generator = PDFReportGenerator()
                 pdf_bytes = generator.generate(report_data)
+                elapsed = time.time() - start_time
+                logger.info(f"✓ PDF generated in {elapsed:.2f}s, size: {len(pdf_bytes)} bytes")
 
                 # Save PDF to file
                 pdf_filename = f"{query_id}.pdf"
                 pdf_path = ROOT / "reports" / pdf_filename
+                logger.info(f"Saving PDF to: {pdf_path}")
                 with open(pdf_path, "wb") as pdf_file:
                     pdf_file.write(pdf_bytes)
+                logger.info(f"✓ PDF saved successfully to {pdf_path}")
 
                 # Show download button
                 st.download_button(
@@ -1397,8 +1539,13 @@ if 'last_result' in st.session_state:
 
                 # Success message
                 st.success(f"✅ PDF report saved to: {pdf_path}")
+                logger.info("=" * 60)
+                logger.info("PDF REPORT GENERATION COMPLETE")
+                logger.info("=" * 60)
 
             except Exception as pdf_error:
+                logger.error(f"PDF generation failed: {str(pdf_error)}")
+                logger.exception("Full PDF error traceback:")
                 st.error(f"⚠️ PDF generation failed: {pdf_error}")
 
         # Show correction history if any
