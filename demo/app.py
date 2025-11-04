@@ -1246,13 +1246,113 @@ if 'last_result' in st.session_state:
                 </div>
             """, unsafe_allow_html=True)
 
+        # Human-readable explanation
+        if not final_result["has_error"]:
+            st.markdown("---")
+            st.subheader("📝 Human-Readable Explanation")
+
+            with st.spinner("Huppy, Huppy, Joy, Joy... 📝 Generating explanation"):
+                explanation = generate_human_explanation(
+                    user_input,
+                    smtlib_code,
+                    final_result["status"],
+                    final_stdout
+                )
+
+                # Display explanation in a nice box
+                st.markdown(f"```\n{explanation}\n```")
+
         # Download buttons
-        if final_result["status"] == "unsat":
-            st.download_button("📥 Download Proof (UNSAT Core)", smtlib_code.encode("utf-8"),
-                             file_name="unsat_core.smt2", mime="text/plain", use_container_width=False)
-        elif final_result["status"] == "sat" and final_result.get("model"):
-            st.download_button("📥 Download Model (Witness)", final_result["model"].encode("utf-8"),
-                             file_name="model.txt", mime="text/plain", use_container_width=False)
+        st.markdown("---")
+        st.subheader("📥 Downloads & Reports")
+
+        col1, col2, col3 = st.columns(3)
+
+        with col1:
+            st.download_button(
+                "Download SMT-LIB code",
+                smtlib_code.encode("utf-8"),
+                file_name="constraints.smt2",
+                mime="text/plain"
+            )
+
+        with col2:
+            st.download_button(
+                "Download raw output",
+                final_stdout.encode("utf-8"),
+                file_name="output.txt",
+                mime="text/plain"
+            )
+
+        with col3:
+            # Generate PDF Report
+            import time
+            query_id = f"query_{int(time.time())}"
+
+            # Get explanation if available
+            explanation_text = None
+            if not final_result["has_error"]:
+                explanation_text = explanation if 'explanation' in locals() else None
+
+            try:
+                # Prepare correction records
+                correction_records = []
+                for i, corr in enumerate(correction_history):
+                    correction_records.append(CorrectionRecord(
+                        attempt_number=i + 1,
+                        error_message=corr.get("error", ""),
+                        fixed_code=corr.get("fixed_code", "")
+                    ))
+
+                # Create report data
+                report_data = ReportData(
+                    query_id=query_id,
+                    timestamp=time.time(),
+                    user_input=user_input,
+                    smtlib_code=smtlib_code,
+                    result_status=final_result["status"],
+                    wall_time_ms=final_wall_ms,
+                    model=final_result.get("model", ""),
+                    explanation=explanation_text,
+                    corrections=correction_records
+                )
+
+                # Generate PDF
+                generator = PDFReportGenerator()
+                pdf_path = generator.generate_report(report_data)
+
+                # Show download button
+                with open(pdf_path, "rb") as pdf_file:
+                    st.download_button(
+                        "📄 Download PDF Report",
+                        pdf_file.read(),
+                        file_name=f"hupyy_report_{query_id}.pdf",
+                        mime="application/pdf"
+                    )
+
+                # Success message
+                st.success(f"✅ PDF report saved to: {pdf_path}")
+
+            except Exception as pdf_error:
+                st.error(f"⚠️ PDF generation failed: {pdf_error}")
+
+        # Show correction history if any
+        if len(correction_history) > 0:
+            with st.expander(f"🔧 Auto-correction History ({len(correction_history)} correction(s))"):
+                for i, correction in enumerate(correction_history):
+                    st.markdown(f"**Correction {i + 1}:**")
+                    st.code(correction.get("error", "No error info"), language="text")
+                    st.markdown("**Fixed code:**")
+                    st.code(correction.get("fixed_code", "No code"), language="lisp")
+                    if i < len(correction_history) - 1:
+                        st.markdown("---")
+
+        # Show raw output
+        with st.expander("📋 Raw cvc5 Output"):
+            st.text(final_stdout)
+            if final_result.get("error"):
+                st.text("--- stderr ---")
+                st.text(final_result["error"])
 
 # Help section
 with st.expander("ℹ️ SMT-LIB Format Help"):
