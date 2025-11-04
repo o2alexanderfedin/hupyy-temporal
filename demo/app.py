@@ -1199,35 +1199,42 @@ Return ONLY the formatted explanation, no preamble."""
         logger.error(f"Error generating explanation: {str(e)}")
         return f"⚠️ Error generating explanation: {str(e)}"
 
-# Model Selection
-selected_model = st.selectbox(
-    "⚙️ Claude Model",
-    options=list(AVAILABLE_MODELS.keys()),
-    format_func=lambda x: AVAILABLE_MODELS[x],
-    index=list(AVAILABLE_MODELS.keys()).index(st.session_state.preferences.get("model", DEFAULT_MODEL)),
-    help="Choose which Claude model to use. Haiku is fastest, Sonnet is balanced, Opus is most capable.",
-    key="model_selector",
-    on_change=lambda: update_preference("model", st.session_state.model_selector)
-)
+# Settings section (collapsible)
+with st.expander("⚙️ Settings", expanded=False):
+    # Model Selection
+    selected_model = st.selectbox(
+        "Claude Model",
+        options=list(AVAILABLE_MODELS.keys()),
+        format_func=lambda x: AVAILABLE_MODELS[x],
+        index=list(AVAILABLE_MODELS.keys()).index(st.session_state.preferences.get("model", DEFAULT_MODEL)),
+        help="Choose which Claude model to use. Haiku is fastest, Sonnet is balanced, Opus is most capable.",
+        key="model_selector",
+        on_change=lambda: update_preference("model", st.session_state.model_selector)
+    )
 
-# Options
-col1, col2 = st.columns(2)
-with col1:
-    use_claude_conversion = st.checkbox(
-        "🤖 Use Hupyy to convert natural language to symbolic constraints",
-        value=st.session_state.preferences.get("use_claude_conversion", False),
-        help="Enable this to use Hupyy CLI for intelligent conversion of plain text to symbolic constraints",
-        key="use_claude_conversion_checkbox",
-        on_change=lambda: update_preference("use_claude_conversion", st.session_state.use_claude_conversion_checkbox)
-    )
-with col2:
-    auto_fix_errors = st.checkbox(
-        "🔧 Auto-fix constraint errors (TDD loop)",
-        value=st.session_state.preferences.get("auto_fix_errors", True),
-        help="If the solver reports an error, automatically ask Hupyy to fix the symbolic constraints and retry (up to 3 attempts)",
-        key="auto_fix_errors_checkbox",
-        on_change=lambda: update_preference("auto_fix_errors", st.session_state.auto_fix_errors_checkbox)
-    )
+    # Options
+    col1, col2 = st.columns(2)
+    with col1:
+        use_claude_conversion = st.checkbox(
+            "🤖 Use Hupyy to convert natural language to symbolic constraints",
+            value=st.session_state.preferences.get("use_claude_conversion", False),
+            help="Enable this to use Hupyy CLI for intelligent conversion of plain text to symbolic constraints",
+            key="use_claude_conversion_checkbox",
+            on_change=lambda: update_preference("use_claude_conversion", st.session_state.use_claude_conversion_checkbox)
+        )
+    with col2:
+        auto_fix_errors = st.checkbox(
+            "🔧 Auto-fix constraint errors (TDD loop)",
+            value=st.session_state.preferences.get("auto_fix_errors", True),
+            help="If the solver reports an error, automatically ask Hupyy to fix the symbolic constraints and retry (up to 3 attempts)",
+            key="auto_fix_errors_checkbox",
+            on_change=lambda: update_preference("auto_fix_errors", st.session_state.auto_fix_errors_checkbox)
+        )
+
+# Get values outside the expander (needed for the main logic)
+selected_model = st.session_state.preferences.get("model", DEFAULT_MODEL)
+use_claude_conversion = st.session_state.preferences.get("use_claude_conversion", False)
+auto_fix_errors = st.session_state.preferences.get("auto_fix_errors", True)
 
 # Solve button
 # TASK-007: Update button text to be more user-friendly
@@ -1625,90 +1632,3 @@ if 'last_result' in st.session_state:
                 st.text(final_result["error"])
 
 # Help section
-with st.expander("ℹ️ SMT-LIB Format Help"):
-    st.markdown("""
-    ### What is SMT-LIB?
-
-    SMT-LIB is the standard input format for SMT (Satisfiability Modulo Theories) solvers.
-    It's a LISP-like language that allows direct access to all solver capabilities.
-
-    ### Current Version: SMT-LIB v2.7 (2025)
-
-    Always use **SMT-LIB v2.7** syntax with modern features:
-    - Modern bit-vector conversions: `int_to_bv`, `ubv_to_int`, `sbv_to_int`
-    - Algebraic datatypes with `match` expressions
-    - Enhanced theory combinations
-
-    ### Basic Structure
-
-    ```lisp
-    (set-logic QF_LIA)              ; Set the logic (Quantifier-Free Linear Integer Arithmetic)
-    (declare-const x Int)            ; Declare variables
-    (declare-const y Int)
-    (assert (>= x 0))                ; Add constraints
-    (assert (= (+ x y) 10))
-    (check-sat)                      ; Check satisfiability
-    (get-model)                      ; Get model if SAT
-    ```
-
-    ### Common Logics
-
-    - **QF_LIA** - Quantifier-Free Linear Integer Arithmetic
-    - **QF_LRA** - Quantifier-Free Linear Real Arithmetic
-    - **QF_NIA** - Quantifier-Free Nonlinear Integer Arithmetic
-    - **QF_BV** - Quantifier-Free Bit-Vectors
-    - **QF_IDL** - Quantifier-Free Integer Difference Logic (temporal reasoning)
-    - **QF_S** - Quantifier-Free Strings
-    - **QF_ABV** - Quantifier-Free Arrays and Bit-Vectors
-
-    ### Example Problems
-
-    #### Linear Arithmetic
-    ```lisp
-    (set-logic QF_LIA)
-    (declare-const x Int)
-    (declare-const y Int)
-    (assert (and (>= x 0) (>= y 0)))
-    (assert (= (+ x (* 2 y)) 10))
-    (assert (> x 3))
-    (check-sat)
-    (get-model)
-    ```
-
-    #### Bit-Vectors (SMT-LIB v2.7 syntax)
-    ```lisp
-    (set-logic QF_BV)
-    (declare-const x (_ BitVec 8))
-    (declare-const y (_ BitVec 8))
-    (assert (bvult x y))
-    (assert (= (bvand x y) #x00))
-    (check-sat)
-    (get-model)
-    ```
-
-    #### Strings
-    ```lisp
-    (set-logic QF_S)
-    (declare-const s String)
-    (assert (str.contains s "hello"))
-    (assert (> (str.len s) 5))
-    (check-sat)
-    (get-model)
-    ```
-
-    ### Natural Language with Hupyy
-
-    Enable "Use Hupyy" and describe your problem in plain English:
-
-    ```
-    Find two positive integers x and y such that their sum is 10
-    and x is greater than 5.
-    ```
-
-    Hupyy will convert this to proper SMT-LIB v2.7 format.
-
-    ### Resources
-
-    - [SMT-LIB Official Site](https://smt-lib.org)
-    - [SMT-LIB v2.7 Reference](https://smt-lib.org/papers/smt-lib-reference-v2.7-r2025-02-05.pdf)
-    """)
