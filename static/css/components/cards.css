@@ -1,7 +1,288 @@
 /* ============================================
-   CARD COMPONENTS (Result Cards)
-   Will be implemented in TASK-005
-   Reference: docs/ui-ux/ui-ux-spec.md lines 39-50
+   RESULT CARD COMPONENT
+   TASK-005 Implementation
+   Based on docs/ui-ux/ui-ux-spec.md lines 39-50
+   Reference: docs/ui-ux/screen_3.png, screen_3_720.png
    ============================================ */
 
-/* Placeholder for TASK-005 implementation */
+/* ============================================
+   CARD CONTAINER
+   Spec line 39: "rounded rectangle, soft drop shadow (#00000015)"
+   ============================================ */
+
+.hupyy-result-card {
+    /* Centered card */
+    max-width: 600px;
+    margin: 48px auto;
+    padding: 40px;
+
+    /* Rounded rectangle - spec line 39 */
+    border-radius: var(--radius-card) !important;  /* ~16px */
+
+    /* White background */
+    background-color: #ffffff !important;
+
+    /* Soft drop shadow - spec line 39: #00000015 = rgba(0,0,0,0.08) */
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08) !important;
+
+    /* Layout */
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 24px !important;
+
+    /* Smooth appearance */
+    animation: slideUp 0.3s ease-out !important;
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ============================================
+   QUERY HEADER
+   Spec line 40: "Query repeated on top line with green checkmark"
+   ============================================ */
+
+.hupyy-result-query {
+    font-family: var(--font-primary) !important;
+    font-size: 1rem !important;
+    font-weight: var(--font-weight-medium) !important;
+    color: var(--text-primary) !important;
+    text-align: center !important;
+    line-height: 1.5 !important;
+
+    /* Checkmark icon */
+    display: flex !important;
+    align-items: center !important;
+    gap: 12px !important;
+    flex-wrap: wrap !important;
+    justify-content: center !important;
+}
+
+/* Green checkmark - spec line 40 */
+.hupyy-result-query::before {
+    content: '✓' !important;
+    display: inline-flex !important;
+    width: 24px !important;
+    height: 24px !important;
+    background-color: var(--status-true) !important;  /* #128C7E */
+    color: #ffffff !important;
+    border-radius: 50% !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 14px !important;
+    flex-shrink: 0 !important;
+}
+
+/* ============================================
+   VERDICT TEXT
+   Spec lines 41-45: "Large central verdict text"
+   Spec line 42: "SF Pro Display Bold"
+   ============================================ */
+
+.hupyy-result-verdict {
+    /* Typography - Spec line 42: SF Pro Display Bold */
+    font-family: var(--font-primary) !important;
+    font-size: var(--font-size-verdict) !important;  /* 5rem / 80px */
+    font-weight: var(--font-weight-black) !important;  /* Bold/Black */
+    letter-spacing: var(--letter-spacing-tight) !important;  /* -0.03em for display */
+    line-height: 1 !important;
+    text-align: center !important;
+
+    /* Default color (will be overridden by status classes) */
+    color: var(--text-primary) !important;
+
+    /* Visual impact */
+    margin: 16px 0 !important;
+}
+
+/* ============================================
+   STATUS COLORS
+   Spec line 43: TRUE → #128C7E (WhatsApp green, darker)
+   Spec line 44: FALSE → #C62828 (Deep red)
+   Spec line 45: UNKNOWN → #FFC300 (Warm amber yellow)
+   ============================================ */
+
+.hupyy-result-verdict.status-true,
+.status-true {
+    color: var(--status-true) !important;  /* #128C7E */
+}
+
+.hupyy-result-verdict.status-false,
+.status-false {
+    color: var(--status-false) !important;  /* #C62828 */
+}
+
+.hupyy-result-verdict.status-unknown,
+.status-unknown {
+    color: var(--status-unknown) !important;  /* #FFC300 */
+}
+
+/* ============================================
+   RESULT DETAILS TEXT
+   ============================================ */
+
+.hupyy-result-details {
+    font-family: var(--font-primary) !important;
+    font-size: 0.9375rem !important;  /* 15px */
+    color: var(--text-secondary) !important;
+    text-align: center !important;
+    line-height: 1.6 !important;
+    max-width: 480px !important;
+}
+
+/* ============================================
+   ACTION BUTTON CONTAINER
+   ============================================ */
+
+.hupyy-result-actions {
+    margin-top: 16px !important;
+    display: flex !important;
+    gap: 16px !important;
+    flex-wrap: wrap !important;
+    justify-content: center !important;
+}
+
+/* ============================================
+   PROOF PANEL (Expandable)
+   Spec line 49: "frosted white background"
+   Spec line 50: "250ms ease-out"
+   ============================================ */
+
+.hupyy-proof-panel {
+    width: 100% !important;
+    margin-top: 24px !important;
+
+    /* Frosted background - spec line 49 */
+    background: rgba(255, 255, 255, 0.95) !important;
+    backdrop-filter: blur(10px) !important;
+    -webkit-backdrop-filter: blur(10px) !important;
+
+    border-radius: 12px !important;
+    border: 1px solid rgba(0, 0, 0, 0.06) !important;
+
+    /* Slide down animation - spec line 50: 250ms ease-out */
+    animation: slideDown 0.25s ease-out !important;
+    overflow: hidden !important;
+}
+
+@keyframes slideDown {
+    from {
+        max-height: 0;
+        opacity: 0;
+    }
+    to {
+        max-height: 1000px;
+        opacity: 1;
+    }
+}
+
+/* ============================================
+   PROOF CONTENT
+   Spec line 49: "monospaced proof text, dark gray #333"
+   ============================================ */
+
+.hupyy-proof-content {
+    padding: 24px !important;
+    font-family: var(--font-mono) !important;
+    font-size: 0.875rem !important;  /* 14px */
+    color: #333 !important;  /* Spec line 49: dark gray */
+    line-height: 1.6 !important;
+    white-space: pre-wrap !important;
+    word-wrap: break-word !important;
+}
+
+/* ============================================
+   STREAMLIT INTEGRATION
+   Apply card styles to Streamlit result displays
+   ============================================ */
+
+/* Style Streamlit containers that display results */
+.element-container:has(.hupyy-result-card) {
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+/* Override Streamlit's default success/error/warning containers */
+.stSuccess .hupyy-result-card,
+.stError .hupyy-result-card,
+.stWarning .hupyy-result-card {
+    background-color: #ffffff !important;
+    border: none !important;
+    padding: 40px !important;
+}
+
+/* ============================================
+   RESPONSIVE ADJUSTMENTS
+   ============================================ */
+
+@media (max-width: 768px) {
+    .hupyy-result-card {
+        margin: 24px 16px !important;
+        padding: 32px 24px !important;
+    }
+
+    .hupyy-result-verdict {
+        font-size: 3.5rem !important;  /* 56px on mobile */
+    }
+
+    .hupyy-result-query {
+        font-size: 0.9375rem !important;
+    }
+}
+
+@media (max-width: 480px) {
+    .hupyy-result-card {
+        margin: 16px 12px !important;
+        padding: 24px 16px !important;
+    }
+
+    .hupyy-result-verdict {
+        font-size: 2.5rem !important;  /* 40px on small mobile */
+    }
+}
+
+/* ============================================
+   COMPACT RESULT CARDS
+   For smaller result displays (optional variant)
+   ============================================ */
+
+.hupyy-result-card.compact {
+    padding: 24px !important;
+    margin: 24px auto !important;
+    max-width: 480px !important;
+}
+
+.hupyy-result-card.compact .hupyy-result-verdict {
+    font-size: 3rem !important;  /* 48px */
+}
+
+/* ============================================
+   LOADING STATE
+   For when verdict is being computed
+   ============================================ */
+
+.hupyy-result-card.loading {
+    opacity: 0.6 !important;
+}
+
+.hupyy-result-card.loading .hupyy-result-verdict {
+    animation: pulse 1.5s ease-in-out infinite !important;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}

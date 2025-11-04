@@ -151,12 +151,37 @@ if run_btn:
     with mid:
         st.subheader("Answer")
         status = str(result.answer).upper()
+
+        # Use result card component (TASK-005)
+        status_class = "status-true" if status == "TRUE" else ("status-false" if status == "FALSE" else "status-unknown")
+        query_text = raw.get("query", {}).get("description", "Verification Query")
+
+        # Determine verdict emoji and message
         if status == "TRUE":
-            st.markdown(f"### ✅ **TRUE** — Negated query is **UNSAT**  \n*p95-ish wall:* `{wall_ms} ms`")
+            verdict_emoji = "✅"
+            verdict_msg = "Negated query is UNSAT"
         elif status == "FALSE":
-            st.markdown(f"### ❌ **FALSE** — Satisfiable (counterexample)  \n*p95-ish wall:* `{wall_ms} ms`")
+            verdict_emoji = "❌"
+            verdict_msg = "Satisfiable (counterexample)"
         else:
-            st.markdown(f"### ⚠️ **UNKNOWN** — Under-constrained  \n*p95-ish wall:* `{wall_ms} ms`")
+            verdict_emoji = "⚠️"
+            verdict_msg = "Under-constrained"
+
+        # Render result card
+        st.markdown(f"""
+        <div class="hupyy-result-card">
+            <div class="hupyy-result-query">
+                {query_text[:100]}{"..." if len(query_text) > 100 else ""}
+            </div>
+            <div class="hupyy-result-verdict {status_class}">
+                {verdict_emoji} {status} —
+            </div>
+            <div class="hupyy-result-details">
+                {verdict_msg}
+                <br><em>p95-ish wall:</em> <code>{wall_ms} ms</code>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
 
         # Generate human-readable explanation
         st.markdown("---")
