@@ -1028,7 +1028,8 @@ with col2:
     )
 
 # Solve button
-if st.button("▶️ Run cvc5", type="primary", use_container_width=True):
+# TASK-007: Update button text to be more user-friendly
+if st.button("Prove It", type="primary", use_container_width=True):
     if not user_input.strip():
         st.warning("Please enter symbolic constraints or a problem description above.")
     else:
@@ -1136,21 +1137,66 @@ if st.button("▶️ Run cvc5", type="primary", use_container_width=True):
                         st.error("❌ **ERROR** in cvc5 execution")
                     with st.expander("🔍 View Error"):
                         st.code(final_result["error"], language="text")
-                elif final_result["status"] == "sat":
-                    if len(correction_history) > 0:
-                        st.success(f"✅ **SAT** — Satisfiable (succeeded after {len(correction_history)} auto-correction(s))  \n*Wall time:* `{final_wall_ms} ms`")
-                    else:
-                        st.success(f"✅ **SAT** — Satisfiable  \n*Wall time:* `{final_wall_ms} ms`")
-                    if final_result["model"]:
+                elif final_result["status"] in ["sat", "unsat", "unknown"]:
+                    # TASK-003: Implement custom result cards with spec colors
+                    # Spec colors: SAT=#128C7E, UNSAT=#C62828, UNKNOWN=#FFC300
+                    verdict_config = {
+                        "sat": {
+                            "text": "TRUE",
+                            "color": "#128C7E",
+                            "bg": "#E8F5E9",
+                            "symbol": "✓"
+                        },
+                        "unsat": {
+                            "text": "FALSE",
+                            "color": "#C62828",
+                            "bg": "#FFEBEE",
+                            "symbol": "✗"
+                        },
+                        "unknown": {
+                            "text": "UNKNOWN",
+                            "color": "#FFC300",
+                            "bg": "#FFF9E6",
+                            "symbol": "?"
+                        }
+                    }
+
+                    config = verdict_config.get(final_result["status"], verdict_config["unknown"])
+                    correction_text = f" (after {len(correction_history)} auto-correction(s))" if len(correction_history) > 0 else ""
+
+                    # Custom result card matching UI/UX spec
+                    st.markdown(f"""
+                        <div style="
+                            background: {config['bg']};
+                            border-left: 6px solid {config['color']};
+                            border-radius: 12px;
+                            padding: 32px;
+                            margin: 24px 0;
+                            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+                            text-align: center;
+                        ">
+                            <div style="
+                                font-size: 5rem;
+                                font-weight: 900;
+                                color: {config['color']};
+                                margin-bottom: 16px;
+                                font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+                                letter-spacing: -0.02em;
+                            ">{config['text']}</div>
+                            <div style="
+                                font-size: 1.125rem;
+                                color: #555555;
+                                margin-bottom: 8px;
+                            ">Wall time: {final_wall_ms} ms{correction_text}</div>
+                        </div>
+                    """, unsafe_allow_html=True)
+
+                    # Keep model expander for SAT results
+                    if final_result["status"] == "sat" and final_result["model"]:
                         with st.expander("🔍 View Model"):
                             st.code(final_result["model"], language="lisp")
-                elif final_result["status"] == "unsat":
-                    if len(correction_history) > 0:
-                        st.error(f"❌ **UNSAT** — Unsatisfiable (succeeded after {len(correction_history)} auto-correction(s))  \n*Wall time:* `{final_wall_ms} ms`")
-                    else:
-                        st.error(f"❌ **UNSAT** — Unsatisfiable  \n*Wall time:* `{final_wall_ms} ms`")
                 else:
-                    st.warning(f"⚠️ **UNKNOWN**  \n*Wall time:* `{final_wall_ms} ms`")
+                    st.warning(f"⚠️ **Unexpected status: {final_result['status']}**  \n*Wall time:* `{final_wall_ms} ms`")
 
                 # Generate human-readable explanation
                 if not final_result["has_error"]:
