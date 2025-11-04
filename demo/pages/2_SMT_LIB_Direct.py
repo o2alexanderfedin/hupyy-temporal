@@ -12,8 +12,18 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 import streamlit as st
+import os
 
 st.set_page_config(page_title="SMT-LIB Direct - Hupyy Temporal", layout="wide")
+
+# Model configuration - can be overridden by environment variable
+# Options: "haiku" (fastest), "sonnet" (balanced), "opus" (most capable)
+DEFAULT_MODEL = os.environ.get("HUPYY_MODEL", "sonnet")
+AVAILABLE_MODELS = {
+    "haiku": "Haiku 3.5 (Fastest ⚡)",
+    "sonnet": "Sonnet 4.5 (Balanced ⚖️)",
+    "opus": "Opus (Most Capable 🧠)"
+}
 
 st.title("🔧 SMT-LIB Direct Mode")
 
@@ -844,7 +854,7 @@ BEGIN PHASE 1 NOW."""
     try:
         # Call Hupyy CLI via stdin (increased timeout for 5-phase processing)
         result = subprocess.run(
-            ["claude", "--print"],
+            ["claude", "--print", "--model", selected_model],
             input=prompt,
             capture_output=True,
             text=True,
@@ -1120,7 +1130,7 @@ BEGIN ERROR DIAGNOSIS NOW."""
 
     try:
         result = subprocess.run(
-            ["claude", "-c", "--print"],
+            ["claude", "-c", "--print", "--model", selected_model],
             input=prompt,
             capture_output=True,
             text=True,
@@ -1244,7 +1254,7 @@ Return ONLY the formatted explanation, no preamble."""
 
     try:
         result_proc = subprocess.run(
-            ["claude", "--print"],
+            ["claude", "--print", "--model", selected_model],
             input=prompt,
             capture_output=True,
             text=True,
@@ -1268,6 +1278,15 @@ Return ONLY the formatted explanation, no preamble."""
         return "⚠️ Claude CLI not found. Install from https://claude.com/claude-code"
     except Exception as e:
         return f"⚠️ Error generating explanation: {str(e)}"
+
+# Model Selection
+selected_model = st.selectbox(
+    "⚙️ Claude Model",
+    options=list(AVAILABLE_MODELS.keys()),
+    format_func=lambda x: AVAILABLE_MODELS[x],
+    index=list(AVAILABLE_MODELS.keys()).index(DEFAULT_MODEL),
+    help="Choose which Claude model to use. Haiku is fastest, Sonnet is balanced, Opus is most capable."
+)
 
 # Options
 col1, col2 = st.columns(2)
