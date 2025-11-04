@@ -78,7 +78,13 @@ def update_preference(key: str, value):
     st.session_state.preferences[key] = value
     save_preferences(st.session_state.preferences)
 
-st.title("🔧 Symbolic Constraints Mode")
+# TASK-001 & TASK-009: Update page header to match UI/UX spec with centering
+st.markdown("""
+    <div style="text-align: center; margin-bottom: 32px;">
+        <h1 style="font-size: 2.5rem; font-weight: 900; color: #111111; margin-bottom: 8px;">HUPYY</h1>
+        <p style="font-size: 1.125rem; color: #555555; font-weight: 500;">What are we proving today?</p>
+    </div>
+""", unsafe_allow_html=True)
 
 def validate_phase_completeness(response: str) -> dict:
     """Validate that all required phase markers are present in the response.
@@ -108,28 +114,16 @@ def validate_phase_completeness(response: str) -> dict:
     }
 
 
-st.markdown("""
-This page implements the **Symbolic Constraints Generation** approach from the multi-theory documentation.
-Work directly with cvc5's native format without JSON intermediaries.
-""")
+# Removed technical description - cleaner UI per spec
 
-# Text input area
+# TASK-002: Update input field styling and placeholder
 user_input = st.text_area(
-    "Enter symbolic constraints or natural language description:",
+    "Input",  # Required for accessibility
     height=300,
-    placeholder="""Example (Symbolic Constraints):
-(set-logic QF_LIA)
-(declare-const x Int)
-(declare-const y Int)
-(assert (>= x 0))
-(assert (>= y 0))
-(assert (= (+ x y) 10))
-(assert (> x 5))
-(check-sat)
-(get-model)
-
-Or enter a natural language problem description.""",
-    help="Paste symbolic constraints directly or describe your problem in plain text"
+    placeholder="Ask and you shall receive",
+    help="Enter symbolic constraints (SMT-LIB format) or describe your problem in plain text",
+    key="main_input",
+    label_visibility="collapsed"  # Hide label but keep for accessibility
 )
 
 def load_external_files(text: str) -> str:
