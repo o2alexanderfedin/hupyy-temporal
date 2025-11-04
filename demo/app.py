@@ -1,4 +1,4 @@
-# demo/pages/2_SMT_LIB_Direct.py
+# demo/app.py - Symbolic Constraints Mode
 import sys
 import subprocess
 import tempfile
