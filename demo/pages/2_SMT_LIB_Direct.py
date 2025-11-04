@@ -27,7 +27,7 @@ from solvers.cvc5_runner import CVC5Runner, CVC5Result
 from reports.pdf_generator import PDFReportGenerator
 from reports.schemas import ReportData, CorrectionRecord
 
-st.set_page_config(page_title="SMT-LIB Direct - Hupyy Temporal", layout="wide")
+st.set_page_config(page_title="Symbolic Constraints - Hupyy Temporal", layout="wide")
 
 # Model configuration - can be overridden by environment variable
 # Options: "haiku" (fastest), "sonnet" (balanced), "opus" (most capable)
@@ -74,7 +74,7 @@ def update_preference(key: str, value):
     st.session_state.preferences[key] = value
     save_preferences(st.session_state.preferences)
 
-st.title("🔧 SMT-LIB Direct Mode")
+st.title("🔧 Symbolic Constraints Mode")
 
 def validate_phase_completeness(response: str) -> dict:
     """Validate that all required phase markers are present in the response.
@@ -105,15 +105,15 @@ def validate_phase_completeness(response: str) -> dict:
 
 
 st.markdown("""
-This page implements the **SMT-LIB Direct Generation** approach from the multi-theory documentation.
+This page implements the **Symbolic Constraints Generation** approach from the multi-theory documentation.
 Work directly with cvc5's native format without JSON intermediaries.
 """)
 
 # Text input area
 user_input = st.text_area(
-    "Enter SMT-LIB v2.7 code or natural language description:",
+    "Enter symbolic constraints or natural language description:",
     height=300,
-    placeholder="""Example (SMT-LIB v2.7):
+    placeholder="""Example (Symbolic Constraints):
 (set-logic QF_LIA)
 (declare-const x Int)
 (declare-const y Int)
@@ -125,7 +125,7 @@ user_input = st.text_area(
 (get-model)
 
 Or enter a natural language problem description.""",
-    help="Paste SMT-LIB code directly or describe your problem in plain text"
+    help="Paste symbolic constraints directly or describe your problem in plain text"
 )
 
 def load_external_files(text: str) -> str:
@@ -1014,17 +1014,17 @@ selected_model = st.selectbox(
 col1, col2 = st.columns(2)
 with col1:
     use_claude_conversion = st.checkbox(
-        "🤖 Use Hupyy to convert natural language to SMT-LIB",
+        "🤖 Use Hupyy to convert natural language to symbolic constraints",
         value=st.session_state.preferences.get("use_claude_conversion", False),
-        help="Enable this to use Hupyy CLI for intelligent conversion of plain text to SMT-LIB v2.7",
+        help="Enable this to use Hupyy CLI for intelligent conversion of plain text to symbolic constraints",
         key="use_claude_conversion_checkbox",
         on_change=lambda: update_preference("use_claude_conversion", st.session_state.use_claude_conversion_checkbox)
     )
 with col2:
     auto_fix_errors = st.checkbox(
-        "🔧 Auto-fix SMT-LIB errors (TDD loop)",
+        "🔧 Auto-fix constraint errors (TDD loop)",
         value=st.session_state.preferences.get("auto_fix_errors", True),
-        help="If cvc5 reports an error, automatically ask Hupyy to fix the SMT-LIB code and retry (up to 3 attempts)",
+        help="If cvc5 reports an error, automatically ask Hupyy to fix the symbolic constraints and retry (up to 3 attempts)",
         key="auto_fix_errors_checkbox",
         on_change=lambda: update_preference("auto_fix_errors", st.session_state.auto_fix_errors_checkbox)
     )
@@ -1032,7 +1032,7 @@ with col2:
 # Solve button
 if st.button("▶️ Run cvc5", type="primary", use_container_width=True):
     if not user_input.strip():
-        st.warning("Please enter SMT-LIB code or a problem description above.")
+        st.warning("Please enter symbolic constraints or a problem description above.")
     else:
         try:
             # Determine if we should use Claude
@@ -1043,7 +1043,7 @@ if st.button("▶️ Run cvc5", type="primary", use_container_width=True):
                 with st.spinner("🤖 Using Hupyy to extract symbolic constraints..."):
                     smtlib_code = convert_to_smtlib(user_input)
                     st.success("✓ Extracted symbolic constraints")
-                    with st.expander("📄 View Extracted SMT-LIB"):
+                    with st.expander("📄 View Extracted Constraints"):
                         st.code(smtlib_code, language="lisp")
 
                     # Show phase analysis if available
@@ -1107,7 +1107,7 @@ if st.button("▶️ Run cvc5", type="primary", use_container_width=True):
                             })
 
                             st.info(f"✓ Hupyy extracted corrected symbolic constraints")
-                            with st.expander(f"📄 View corrected code (attempt {attempt + 1})"):
+                            with st.expander(f"📄 View corrected constraints (attempt {attempt + 1})"):
                                 st.code(fixed_code, language="lisp")
 
                             # Use fixed code for next attempt
