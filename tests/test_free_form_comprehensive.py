@@ -21,6 +21,9 @@ import sys
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
+from ai.claude_client import ClaudeClient
+from config.constants import TIMEOUT_AI_CONVERSION
+
 
 def extract_expected_result(file_path: Path) -> Optional[Literal["sat", "unsat", "unknown"]]:
     """
@@ -111,25 +114,8 @@ Thoroughly and religiously and systematically review the complete problem descri
 Return ONLY the SMT-LIB code, no explanations or markdown formatting."""
 
     try:
-        result = subprocess.run(
-            ["claude", "--print"],
-            input=prompt,
-            capture_output=True,
-            text=True,
-            timeout=timeout_sec
-        )
-
-        if result.returncode != 0:
-            return {
-                "success": False,
-                "result": None,
-                "time_ms": int((time.time() - start_time) * 1000),
-                "error": f"Claude CLI failed: {result.stderr}",
-                "smtlib_code": None,
-                "cvc5_output": None
-            }
-
-        response = result.stdout.strip()
+        client = ClaudeClient()
+        response = client.invoke(prompt, timeout=timeout_sec).strip()
 
         # Extract SMT-LIB code from response
         if "```" in response:
@@ -155,7 +141,7 @@ Return ONLY the SMT-LIB code, no explanations or markdown formatting."""
 
         smtlib_code = response[start_idx:end_idx+1]
 
-    except subprocess.TimeoutExpired:
+    except ClaudeClient.ClaudeTimeoutError:
         return {
             "success": False,
             "result": None,
@@ -281,24 +267,8 @@ Respond with ONLY one word: SAT, UNSAT, or UNKNOWN
 Then on a new line, briefly explain your reasoning."""
 
     try:
-        result = subprocess.run(
-            ["claude", "--print"],
-            input=prompt,
-            capture_output=True,
-            text=True,
-            timeout=timeout_sec
-        )
-
-        if result.returncode != 0:
-            return {
-                "success": False,
-                "result": None,
-                "time_ms": int((time.time() - start_time) * 1000),
-                "error": f"Claude CLI failed: {result.stderr}",
-                "reasoning": None
-            }
-
-        response = result.stdout.strip()
+        client = ClaudeClient()
+        response = client.invoke(prompt, timeout=timeout_sec).strip()
 
         # Extract result (first line) and reasoning
         lines = response.split('\n', 1)
@@ -338,7 +308,7 @@ Then on a new line, briefly explain your reasoning."""
             "reasoning": reasoning
         }
 
-    except subprocess.TimeoutExpired:
+    except ClaudeClient.ClaudeTimeoutError:
         return {
             "success": False,
             "result": None,

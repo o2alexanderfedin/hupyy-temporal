@@ -18,6 +18,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
+# Import ClaudeClient for AI integration
+from ai.claude_client import ClaudeClient, ClaudeTimeoutError
+from config.constants import TIMEOUT_AI_CONVERSION, TIMEOUT_AI_ERROR_FIXING
+
 # Import functions from the SMT-LIB Direct page
 # We'll import them dynamically since it's a Streamlit page
 import importlib.util
@@ -82,18 +86,8 @@ Include (check-sat) and optionally (get-model) at the end.
 Return ONLY the SMT-LIB code, no explanations or markdown formatting."""
 
     try:
-        result = subprocess.run(
-            ["claude", "--print"],
-            input=prompt,
-            capture_output=True,
-            text=True,
-            timeout=180
-        )
-
-        if result.returncode != 0:
-            raise Exception(f"Claude CLI failed: {result.stderr}")
-
-        response = result.stdout.strip()
+        client = ClaudeClient()
+        response = client.invoke(prompt, timeout=TIMEOUT_AI_CONVERSION)
 
         # Extract SMT-LIB code
         if "```" in response:
@@ -112,10 +106,8 @@ Return ONLY the SMT-LIB code, no explanations or markdown formatting."""
 
         return response[start_idx:end_idx+1]
 
-    except subprocess.TimeoutExpired:
-        raise Exception("Claude CLI timed out after 3 minutes")
-    except FileNotFoundError:
-        raise Exception("Claude CLI not found. Please install it from https://claude.com/claude-code")
+    except ClaudeTimeoutError:
+        raise Exception(f"Claude API timed out after {TIMEOUT_AI_CONVERSION} seconds")
     except Exception as e:
         raise Exception(f"Failed to convert to SMT-LIB: {str(e)}")
 
@@ -185,18 +177,8 @@ LOGIC SELECTION RULES (critical to avoid errors):
 Return ONLY the corrected SMT-LIB v2.7 code, no explanations."""
 
     try:
-        result = subprocess.run(
-            ["claude", "-c", "--print"],
-            input=prompt,
-            capture_output=True,
-            text=True,
-            timeout=120
-        )
-
-        if result.returncode != 0:
-            raise Exception(f"Claude CLI failed: {result.stderr}")
-
-        response = result.stdout.strip()
+        client = ClaudeClient()
+        response = client.invoke(prompt, timeout=TIMEOUT_AI_ERROR_FIXING)
 
         # Extract SMT-LIB code
         if "```" in response:
@@ -215,6 +197,8 @@ Return ONLY the corrected SMT-LIB v2.7 code, no explanations."""
 
         return response[start_idx:end_idx+1]
 
+    except ClaudeTimeoutError:
+        raise Exception(f"Claude API timed out after {TIMEOUT_AI_ERROR_FIXING} seconds")
     except Exception as e:
         raise Exception(f"Failed to fix SMT-LIB code: {str(e)}")
 
