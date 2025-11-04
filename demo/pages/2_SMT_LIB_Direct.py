@@ -21,6 +21,7 @@ from config.constants import (
     TIMEOUT_AI_ERROR_FIXING,
     TIMEOUT_AI_EXPLANATION
 )
+from solvers.cvc5_runner import CVC5Runner, CVC5Result
 
 # Import PDF generation modules
 from reports.pdf_generator import PDFReportGenerator
@@ -719,35 +720,6 @@ BEGIN PHASE 1 NOW."""
     except Exception as e:
         raise Exception(f"Failed to convert to SMT-LIB: {str(e)}")
 
-def run_cvc5_direct(smtlib_code: str) -> tuple[str, str, int]:
-    """Run cvc5 directly on SMT-LIB code."""
-    # Find cvc5 binary
-    cvc5_path = ROOT / "bin" / "cvc5"
-    if not cvc5_path.exists():
-        raise Exception(f"cvc5 binary not found at {cvc5_path}")
-
-    # Write code to temporary file
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.smt2', delete=False) as f:
-        f.write(smtlib_code)
-        temp_file = f.name
-
-    try:
-        # Run cvc5 with increased timeout for complex problems
-        # Use --produce-models to get model output for SAT results
-        t0 = time.time()
-        result = subprocess.run(
-            [str(cvc5_path), "--produce-models", temp_file],
-            capture_output=True,
-            text=True,
-            timeout=120
-        )
-        wall_ms = int((time.time() - t0) * 1000)
-
-        return result.stdout, result.stderr, wall_ms
-
-    finally:
-        # Clean up temp file
-        Path(temp_file).unlink(missing_ok=True)
 
 def parse_cvc5_output(stdout: str, stderr: str) -> dict:
     """Parse cvc5 output to determine result."""
@@ -1098,16 +1070,17 @@ if st.button("▶️ Run cvc5", type="primary", use_container_width=True):
                     # Run cvc5
                     spinner_text = f"Running cvc5 (attempt {attempt}/{MAX_ATTEMPTS})..." if attempt > 1 else "Running cvc5..."
                     with st.spinner(spinner_text):
-                        stdout, stderr, wall_ms = run_cvc5_direct(smtlib_code)
+                        runner = CVC5Runner()
+                        cvc5_result = runner.run(smtlib_code)
 
                     # Parse results
-                    result = parse_cvc5_output(stdout, stderr)
+                    result = parse_cvc5_output(cvc5_result.stdout, cvc5_result.stderr)
 
                     # Save final results
                     final_result = result
-                    final_stdout = stdout
-                    final_stderr = stderr
-                    final_wall_ms = wall_ms
+                    final_stdout = cvc5_result.stdout
+                    final_stderr = cvc5_result.stderr
+                    final_wall_ms = cvc5_result.wall_time_ms
 
                     # Check if we have an error and should try to fix it
                     if result["has_error"] and auto_fix_errors and attempt < MAX_ATTEMPTS:
