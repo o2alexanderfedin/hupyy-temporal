@@ -25,6 +25,42 @@ AVAILABLE_MODELS = {
     "opus": "Opus (Most Capable 🧠)"
 }
 
+# User preferences file
+PREFERENCES_FILE = ROOT / "config" / "user_preferences.json"
+
+def load_preferences() -> dict:
+    """Load user preferences from JSON file."""
+    try:
+        if PREFERENCES_FILE.exists():
+            with open(PREFERENCES_FILE, 'r') as f:
+                return json.load(f)
+    except Exception:
+        pass
+    # Return defaults
+    return {
+        "model": DEFAULT_MODEL,
+        "use_claude_conversion": False,
+        "auto_fix_errors": True
+    }
+
+def save_preferences(prefs: dict) -> None:
+    """Save user preferences to JSON file."""
+    try:
+        PREFERENCES_FILE.parent.mkdir(parents=True, exist_ok=True)
+        with open(PREFERENCES_FILE, 'w') as f:
+            json.dump(prefs, f, indent=2)
+    except Exception:
+        pass  # Silently fail if can't save
+
+# Load preferences
+if 'preferences' not in st.session_state:
+    st.session_state.preferences = load_preferences()
+
+def update_preference(key: str, value):
+    """Update a preference and save to disk."""
+    st.session_state.preferences[key] = value
+    save_preferences(st.session_state.preferences)
+
 st.title("🔧 SMT-LIB Direct Mode")
 
 def validate_phase_completeness(response: str) -> dict:
@@ -1012,11 +1048,7 @@ def parse_cvc5_output(stdout: str, stderr: str) -> dict:
         "has_error": False
     }
 
-    # Check for errors in output
-    if "(error" in stdout_lower or "error:" in stdout_lower or stderr:
-        result["has_error"] = True
-        result["error"] = stdout if "(error" in stdout_lower else stderr
-
+    # Parse status FIRST (before error checking)
     if "unsat" in stdout_lower:
         result["status"] = "unsat"
     elif "sat" in stdout_lower and "unsat" not in stdout_lower:
@@ -1024,6 +1056,19 @@ def parse_cvc5_output(stdout: str, stderr: str) -> dict:
         # Try to extract model if present
         if "(" in stdout:
             result["model"] = stdout
+
+    # Check for errors in output
+    # IMPORTANT: Filter out expected "cannot get model" error for UNSAT results
+    if "(error" in stdout_lower or "error:" in stdout_lower or stderr:
+        # Special case: "cannot get model" after UNSAT is expected behavior, not an error
+        if "cannot get model" in stdout_lower and result["status"] == "unsat":
+            # This is expected - UNSAT results have no model
+            # Don't trigger TDD loop for this
+            result["has_error"] = False
+        else:
+            # Real error: syntax error, undefined symbol, type error, etc.
+            result["has_error"] = True
+            result["error"] = stdout if "(error" in stdout_lower else stderr
 
     if stderr:
         result["error"] = stderr
@@ -1284,8 +1329,10 @@ selected_model = st.selectbox(
     "⚙️ Claude Model",
     options=list(AVAILABLE_MODELS.keys()),
     format_func=lambda x: AVAILABLE_MODELS[x],
-    index=list(AVAILABLE_MODELS.keys()).index(DEFAULT_MODEL),
-    help="Choose which Claude model to use. Haiku is fastest, Sonnet is balanced, Opus is most capable."
+    index=list(AVAILABLE_MODELS.keys()).index(st.session_state.preferences.get("model", DEFAULT_MODEL)),
+    help="Choose which Claude model to use. Haiku is fastest, Sonnet is balanced, Opus is most capable.",
+    key="model_selector",
+    on_change=lambda: update_preference("model", st.session_state.model_selector)
 )
 
 # Options
@@ -1293,14 +1340,18 @@ col1, col2 = st.columns(2)
 with col1:
     use_claude_conversion = st.checkbox(
         "🤖 Use Hupyy to convert natural language to SMT-LIB",
-        value=False,
-        help="Enable this to use Hupyy CLI for intelligent conversion of plain text to SMT-LIB v2.7"
+        value=st.session_state.preferences.get("use_claude_conversion", False),
+        help="Enable this to use Hupyy CLI for intelligent conversion of plain text to SMT-LIB v2.7",
+        key="use_claude_conversion_checkbox",
+        on_change=lambda: update_preference("use_claude_conversion", st.session_state.use_claude_conversion_checkbox)
     )
 with col2:
     auto_fix_errors = st.checkbox(
         "🔧 Auto-fix SMT-LIB errors (TDD loop)",
-        value=True,
-        help="If cvc5 reports an error, automatically ask Hupyy to fix the SMT-LIB code and retry (up to 3 attempts)"
+        value=st.session_state.preferences.get("auto_fix_errors", True),
+        help="If cvc5 reports an error, automatically ask Hupyy to fix the SMT-LIB code and retry (up to 3 attempts)",
+        key="auto_fix_errors_checkbox",
+        on_change=lambda: update_preference("auto_fix_errors", st.session_state.auto_fix_errors_checkbox)
     )
 
 # Solve button
