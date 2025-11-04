@@ -1315,6 +1315,9 @@ if 'last_result' in st.session_state:
                     final_stdout
                 )
 
+                # BUG FIX: Store explanation in session_state for PDF generation
+                st.session_state['last_explanation'] = explanation
+
                 # Display explanation in a nice box
                 st.markdown(f"```\n{explanation}\n```")
 
@@ -1345,10 +1348,10 @@ if 'last_result' in st.session_state:
             import time
             query_id = f"query_{int(time.time())}"
 
-            # Get explanation if available
+            # Get explanation if available from session_state
             explanation_text = None
             if not final_result["has_error"]:
-                explanation_text = explanation if 'explanation' in locals() else None
+                explanation_text = st.session_state.get('last_explanation', None)
 
             try:
                 # Prepare correction records
