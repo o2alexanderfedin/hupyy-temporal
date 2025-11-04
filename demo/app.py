@@ -1134,6 +1134,7 @@ if st.button("Prove It", type="primary", use_container_width=True):
                 st.session_state['last_wall_ms'] = final_wall_ms
                 st.session_state['last_correction_history'] = correction_history
                 st.session_state['last_stdout'] = final_stdout
+                st.session_state['last_stderr'] = final_stderr
                 st.session_state['last_user_input'] = user_input
 
         except Exception as e:
@@ -1185,6 +1186,7 @@ if 'last_result' in st.session_state:
     final_wall_ms = st.session_state['last_wall_ms']
     correction_history = st.session_state['last_correction_history']
     final_stdout = st.session_state['last_stdout']
+    final_stderr = st.session_state.get('last_stderr', '')
     user_input = st.session_state.get('last_user_input', '')
 
     if final_result["has_error"]:
@@ -1299,22 +1301,23 @@ if 'last_result' in st.session_state:
                 correction_records = []
                 for i, corr in enumerate(correction_history):
                     correction_records.append(CorrectionRecord(
-                        attempt_number=i + 1,
-                        error_message=corr.get("error", ""),
-                        fixed_code=corr.get("fixed_code", "")
+                        attempt=i + 1,
+                        error=corr.get("error", ""),
+                        fix_applied=corr.get("fixed_code", "")
                     ))
 
                 # Create report data
                 report_data = ReportData(
                     query_id=query_id,
-                    timestamp=time.time(),
                     user_input=user_input,
                     smtlib_code=smtlib_code,
-                    result_status=final_result["status"],
-                    wall_time_ms=final_wall_ms,
+                    status=final_result["status"],
+                    cvc5_stdout=final_stdout,
+                    cvc5_stderr=final_stderr,
+                    wall_ms=final_wall_ms,
                     model=final_result.get("model", ""),
-                    explanation=explanation_text,
-                    corrections=correction_records
+                    human_explanation=explanation_text,
+                    correction_history=correction_records
                 )
 
                 # Generate PDF
