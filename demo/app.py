@@ -1128,248 +1128,13 @@ if st.button("Prove It", type="primary", use_container_width=True):
                 assert final_stderr is not None
                 assert final_wall_ms is not None
 
-                # Display final results
-                st.subheader("Results")
-
-                if final_result["has_error"]:
-                    if len(correction_history) > 0:
-                        st.error(f"❌ Failed after {attempt} attempt(s). Last error persists.")
-                    else:
-                        st.error("❌ **ERROR** in cvc5 execution")
-                    with st.expander("🔍 View Error"):
-                        st.code(final_result["error"], language="text")
-                elif final_result["status"] in ["sat", "unsat", "unknown"]:
-                    # TASK-003: Implement custom result cards with spec colors
-                    # Spec colors: SAT=#128C7E, UNSAT=#C62828, UNKNOWN=#FFC300
-                    verdict_config = {
-                        "sat": {
-                            "text": "TRUE",
-                            "color": "#128C7E",
-                            "bg": "#E8F5E9",
-                            "symbol": "✓"
-                        },
-                        "unsat": {
-                            "text": "FALSE",
-                            "color": "#C62828",
-                            "bg": "#FFEBEE",
-                            "symbol": "✗"
-                        },
-                        "unknown": {
-                            "text": "UNKNOWN",
-                            "color": "#FFC300",
-                            "bg": "#FFF9E6",
-                            "symbol": "?"
-                        }
-                    }
-
-                    config = verdict_config.get(final_result["status"], verdict_config["unknown"])
-                    correction_text = f" (after {len(correction_history)} auto-correction(s))" if len(correction_history) > 0 else ""
-
-                    # Custom result card matching UI/UX spec
-                    st.markdown(f"""
-                        <div style="
-                            background: {config['bg']};
-                            border-left: 6px solid {config['color']};
-                            border-radius: 12px;
-                            padding: 32px;
-                            margin: 24px 0;
-                            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-                            text-align: center;
-                        ">
-                            <div style="
-                                font-size: 5rem;
-                                font-weight: 900;
-                                color: {config['color']};
-                                margin-bottom: 16px;
-                                font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
-                                letter-spacing: -0.02em;
-                            ">{config['text']}</div>
-                            <div style="
-                                font-size: 1.125rem;
-                                color: #555555;
-                                margin-bottom: 8px;
-                            ">Wall time: {final_wall_ms} ms{correction_text}</div>
-                        </div>
-                    """, unsafe_allow_html=True)
-
-                    # TASK-004 & TASK-005: Add "SHOW ME THE PROOF" button with styled panel
-                    # Initialize session state for proof visibility
-                    if 'show_proof_panel' not in st.session_state:
-                        st.session_state.show_proof_panel = False
-
-                    # Toggle button with Salesforce-style gradient
-                    col1, col2, col3 = st.columns([1, 2, 1])
-                    with col2:
-                        if st.button("SHOW ME THE PROOF ↓" if not st.session_state.show_proof_panel else "HIDE PROOF ↑",
-                                   use_container_width=True,
-                                   key="proof_toggle"):
-                            st.session_state.show_proof_panel = not st.session_state.show_proof_panel
-
-                    # Show proof panel when toggled
-                    if st.session_state.show_proof_panel:
-                        proof_content = ""
-                        if final_result["status"] == "sat" and final_result["model"]:
-                            proof_content = f"**Counterexample Model (Witness):**\n\n{final_result['model']}"
-                        elif final_result["status"] == "unsat":
-                            proof_content = f"**Minimal UNSAT Core (SMT-LIB):**\n\n{smtlib_code}"
-                        else:
-                            proof_content = "No proof or witness available."
-
-                        # Frosted glass proof panel (TASK-005)
-                        st.markdown(f"""
-                            <div style="
-                                background: rgba(255, 255, 255, 0.85);
-                                backdrop-filter: blur(10px);
-                                border: 1px solid rgba(200, 212, 226, 0.5);
-                                border-radius: 12px;
-                                padding: 24px;
-                                margin: 16px 0;
-                                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-                                font-family: 'SF Mono', 'Monaco', 'Courier New', monospace;
-                                font-size: 0.875rem;
-                                color: #333333;
-                                white-space: pre-wrap;
-                                word-break: break-word;
-                            ">
-                                {proof_content.replace('<', '&lt;').replace('>', '&gt;')}
-                            </div>
-                        """, unsafe_allow_html=True)
-                else:
-                    st.warning(f"⚠️ **Unexpected status: {final_result['status']}**  \n*Wall time:* `{final_wall_ms} ms`")
-
-                # Generate human-readable explanation
-                if not final_result["has_error"]:
-                    st.markdown("---")
-                    st.subheader("📝 Human-Readable Explanation")
-
-                    with st.spinner("Huppy, Huppy, Joy, Joy... 📝 Generating explanation"):
-                        explanation = generate_human_explanation(
-                            user_input,
-                            smtlib_code,
-                            final_result["status"],
-                            final_stdout
-                        )
-
-                        # Display explanation in a nice box
-                        st.markdown(f"```\n{explanation}\n```")
-
-                # Download buttons for proof/model (kept separate from toggle panel)
-                if final_result["status"] == "unsat":
-                    st.download_button(
-                        "📥 Download Proof (UNSAT Core)",
-                        smtlib_code.encode("utf-8"),
-                        file_name="unsat_core.smt2",
-                        mime="text/plain",
-                        use_container_width=False
-                    )
-                elif final_result["status"] == "sat" and final_result["model"]:
-                    st.download_button(
-                        "📥 Download Model (Witness)",
-                        final_result["model"].encode("utf-8"),
-                        file_name="model.txt",
-                        mime="text/plain",
-                        use_container_width=False
-                    )
-
-                # Show correction history if any
-                if len(correction_history) > 0:
-                    with st.expander(f"🔧 Auto-correction History ({len(correction_history)} correction(s))"):
-                        for i, correction in enumerate(correction_history):
-                            st.markdown(f"**Correction {i + 1}:**")
-                            st.text(f"Error: {correction['error'][:200]}...")
-                            st.markdown("---")
-
-                # Show raw output
-                with st.expander("📋 Raw cvc5 Output"):
-                    st.text(final_stdout)
-                    if final_stderr:
-                        st.text("--- stderr ---")
-                        st.text(final_stderr)
-
-                # Download buttons
-                col1, col2, col3 = st.columns(3)
-                with col1:
-                    st.download_button(
-                        "Download SMT-LIB code",
-                        smtlib_code.encode("utf-8"),
-                        file_name="problem.smt2",
-                        mime="text/plain"
-                    )
-                with col2:
-                    st.download_button(
-                        "Download cvc5 output",
-                        final_stdout.encode("utf-8"),
-                        file_name="output.txt",
-                        mime="text/plain"
-                    )
-                with col3:
-                    # Generate PDF Report
-                    import time
-                    query_id = f"query_{int(time.time())}"
-
-                    # Get explanation if available
-                    explanation_text = None
-                    if not final_result["has_error"]:
-                        explanation_text = explanation if 'explanation' in locals() else None
-
-                    # Get phase outputs if available
-                    phase_outputs_text = st.session_state.get('last_phase_outputs', None)
-
-                    # Generate PDF
-                    try:
-                        # Convert correction history to CorrectionRecord objects
-                        correction_records = []
-                        if correction_history:
-                            for i, correction in enumerate(correction_history):
-                                correction_records.append(
-                                    CorrectionRecord(
-                                        attempt=i + 1,
-                                        error=correction.get('error', 'Unknown error'),
-                                        fix_applied=correction.get('fix_applied', 'Fix applied')
-                                    )
-                                )
-
-                        # Create report data
-                        report_data = ReportData(
-                            query_id=query_id,
-                            user_input=user_input,
-                            smtlib_code=smtlib_code,
-                            status=final_result["status"],
-                            cvc5_stdout=final_stdout,
-                            cvc5_stderr=final_stderr if final_stderr else "",
-                            wall_ms=final_wall_ms,
-                            model=final_result.get("model"),
-                            phase_outputs=phase_outputs_text,
-                            human_explanation=explanation_text,
-                            correction_history=correction_records
-                        )
-
-                        # Generate PDF
-                        generator = PDFReportGenerator()
-                        pdf_bytes = generator.generate(report_data)
-
-                        # Save to reports directory
-                        from pathlib import Path
-                        reports_dir = Path("reports")
-                        reports_dir.mkdir(exist_ok=True)
-                        pdf_path = reports_dir / f"{query_id}.pdf"
-
-                        with open(pdf_path, 'wb') as f:
-                            f.write(pdf_bytes)
-
-                        # Download button
-                        st.download_button(
-                            "📄 Download PDF Report",
-                            pdf_bytes,
-                            file_name=f"{query_id}.pdf",
-                            mime="application/pdf"
-                        )
-
-                        # Success message
-                        st.success(f"✅ PDF report saved to: {pdf_path}")
-
-                    except Exception as pdf_error:
-                        st.error(f"⚠️ PDF generation failed: {pdf_error}")
+                # BUG FIX: Store results in session_state so they persist across reruns
+                st.session_state['last_result'] = final_result
+                st.session_state['last_smtlib_code'] = smtlib_code
+                st.session_state['last_wall_ms'] = final_wall_ms
+                st.session_state['last_correction_history'] = correction_history
+                st.session_state['last_stdout'] = final_stdout
+                st.session_state['last_user_input'] = user_input
 
         except Exception as e:
             st.error(f"❌ Error: {e}")
@@ -1409,6 +1174,85 @@ if st.button("Prove It", type="primary", use_container_width=True):
                         st.warning(f"⚠️ Prompt is large ({debug_info.get('prompt_total_length', 0)} chars) - might cause issues")
                     else:
                         st.info(f"Prompt size: {debug_info.get('prompt_total_length', 0)} characters")
+
+# BUG FIX: Display results from session_state (persists across reruns)
+# This allows the "SHOW ME THE PROOF" button to work without resetting everything
+if 'last_result' in st.session_state:
+    st.subheader("Results")
+
+    final_result = st.session_state['last_result']
+    smtlib_code = st.session_state['last_smtlib_code']
+    final_wall_ms = st.session_state['last_wall_ms']
+    correction_history = st.session_state['last_correction_history']
+    final_stdout = st.session_state['last_stdout']
+    user_input = st.session_state.get('last_user_input', '')
+
+    if final_result["has_error"]:
+        if len(correction_history) > 0:
+            st.error(f"❌ Failed after {len(correction_history)} attempt(s). Last error persists.")
+        else:
+            st.error("❌ **ERROR** in cvc5 execution")
+        with st.expander("🔍 View Error"):
+            st.code(final_result["error"], language="text")
+    elif final_result["status"] in ["sat", "unsat", "unknown"]:
+        # Custom result cards with spec colors
+        verdict_config = {
+            "sat": {"text": "TRUE", "color": "#128C7E", "bg": "#E8F5E9"},
+            "unsat": {"text": "FALSE", "color": "#C62828", "bg": "#FFEBEE"},
+            "unknown": {"text": "UNKNOWN", "color": "#FFC300", "bg": "#FFF9E6"}
+        }
+
+        config = verdict_config.get(final_result["status"], verdict_config["unknown"])
+        correction_text = f" (after {len(correction_history)} auto-correction(s))" if len(correction_history) > 0 else ""
+
+        st.markdown(f"""
+            <div style="background: {config['bg']}; border-left: 6px solid {config['color']};
+                border-radius: 12px; padding: 32px; margin: 24px 0;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08); text-align: center;">
+                <div style="font-size: 5rem; font-weight: 900; color: {config['color']};
+                    margin-bottom: 16px; font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+                    letter-spacing: -0.02em;">{config['text']}</div>
+                <div style="font-size: 1.125rem; color: #555555; margin-bottom: 8px;">
+                    Wall time: {final_wall_ms} ms{correction_text}</div>
+            </div>
+        """, unsafe_allow_html=True)
+
+        # SHOW ME THE PROOF button with toggle
+        if 'show_proof_panel' not in st.session_state:
+            st.session_state.show_proof_panel = False
+
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            if st.button("SHOW ME THE PROOF ↓" if not st.session_state.show_proof_panel else "HIDE PROOF ↑",
+                       use_container_width=True, key="proof_toggle"):
+                st.session_state.show_proof_panel = not st.session_state.show_proof_panel
+
+        if st.session_state.show_proof_panel:
+            proof_content = ""
+            if final_result["status"] == "sat" and final_result.get("model"):
+                proof_content = f"Counterexample Model (Witness):\n\n{final_result['model']}"
+            elif final_result["status"] == "unsat":
+                proof_content = f"Minimal UNSAT Core (SMT-LIB):\n\n{smtlib_code}"
+            else:
+                proof_content = "No proof or witness available."
+
+            st.markdown(f"""
+                <div style="background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(10px);
+                    border: 1px solid rgba(200, 212, 226, 0.5); border-radius: 12px; padding: 24px; margin: 16px 0;
+                    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+                    font-family: 'SF Mono', 'Monaco', 'Courier New', monospace;
+                    font-size: 0.875rem; color: #333333; white-space: pre-wrap; word-break: break-word;">
+                    {proof_content.replace('<', '&lt;').replace('>', '&gt;')}
+                </div>
+            """, unsafe_allow_html=True)
+
+        # Download buttons
+        if final_result["status"] == "unsat":
+            st.download_button("📥 Download Proof (UNSAT Core)", smtlib_code.encode("utf-8"),
+                             file_name="unsat_core.smt2", mime="text/plain", use_container_width=False)
+        elif final_result["status"] == "sat" and final_result.get("model"):
+            st.download_button("📥 Download Model (Witness)", final_result["model"].encode("utf-8"),
+                             file_name="model.txt", mime="text/plain", use_container_width=False)
 
 # Help section
 with st.expander("ℹ️ SMT-LIB Format Help"):
