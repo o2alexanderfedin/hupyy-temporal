@@ -1,9 +1,9 @@
 # Hupyy Temporal - System Architecture
 
-**Version:** 2.0.0 (MCP-First Edition)
-**Last Updated:** November 4, 2025
+**Version:** 2.1.0 (Bidirectional MCP Edition)
+**Last Updated:** November 5, 2025
 **Document Type:** Technical Architecture for Investors
-**Strategic Focus:** MCP (Model Context Protocol) Server Ecosystem
+**Strategic Focus:** Bidirectional MCP (Model Context Protocol) Ecosystem - Consumer AND Provider
 
 ---
 
@@ -12,21 +12,36 @@
 Hupyy Temporal is an AI-powered formal verification platform that transforms natural language queries into mathematical proofs using Satisfiability Modulo Theories (SMT) solvers. The system combines cutting-edge AI (Claude API) with formal methods (SMT-LIB, cvc5 solver) to provide rigorous, mathematically-sound verification of complex temporal, logical, and data constraints.
 
 **Current State:** Production-ready web application with UI testbench
-**Target State:** Enterprise SaaS platform with RESTful API + **Pluggable MCP Server Ecosystem**
+**Target State:** Enterprise SaaS platform with RESTful API + **Bidirectional MCP Strategy**
 **Key Differentiators:**
 1. Only platform combining LLM-based natural language understanding with formal SMT verification
 2. **Pluggable MCP (Model Context Protocol) servers for seamless customer data integration**
 3. **Zero-code data connectors** - customers deploy MCP servers to expose their data sources without API development
+4. **Hupyy as MCP Server** - Our SaaS verification service is ALSO accessible via MCP, enabling ANY AI application to perform formal verification
 
-### MCP-First Architecture
+### MCP-First Architecture (BIDIRECTIONAL STRATEGY)
 
-**Critical Strategic Decision:** We heavily leverage Anthropic's **Model Context Protocol (MCP)** as our primary data integration strategy. MCP servers act as pluggable adapters that securely expose customer-side data sources (databases, APIs, file systems, SaaS platforms) to our verification engine.
+**Critical Strategic Decision:** We employ a **bidirectional MCP strategy** that positions Hupyy at the center of the MCP ecosystem:
 
-**Why MCP-First:**
-- **Customer Data Stays Customer-Side:** MCP servers run in customer infrastructure - we never store sensitive data
-- **Zero Integration Cost:** Customers deploy pre-built MCP servers (PostgreSQL, MySQL, Salesforce, etc.) with zero code
+**1. Hupyy CONSUMES Customer Data via MCP Servers (Inbound):**
+- MCP servers act as pluggable adapters exposing customer-side data sources (databases, APIs, file systems, SaaS)
+- Customer data stays customer-side - we never store sensitive data
+- Zero integration cost - customers deploy pre-built MCP servers with zero code
+- Examples: `@mcp/postgres`, `@mcp/salesforce`, `@hupyy/healthcare-fhir`
+
+**2. Hupyy PROVIDES Verification Services via MCP Server (Outbound):**
+- **`@hupyy/verification-server`** - Our SaaS API exposed as MCP server
+- ANY AI application (Claude Desktop, custom agents, LangChain) can perform formal verification via MCP
+- No REST API integration needed - just add our MCP server to their config
+- AI apps get formal verification as a tool they can call with natural language
+
+**Why Bidirectional MCP:**
+- **Network Effects x2:** We're both a consumer AND provider in the MCP ecosystem
+- **Viral Distribution:** Any MCP-enabled AI app can add our verification service with 3 lines of JSON config
+- **Developer-Friendly:** AI developers integrate formal verification without learning our REST API
 - **Ecosystem Play:** Build marketplace of domain-specific MCP servers (healthcare, finance, compliance)
 - **Competitive Moat:** First-mover advantage in MCP-based formal verification ecosystem
+- **Usage-Based Pricing:** Every MCP call to our service = revenue opportunity
 
 ---
 
@@ -256,11 +271,20 @@ graph TB
 - `@mcp/google-drive` - Google Drive files
 
 **3. Hupyy-Specific MCP Servers (Our IP):**
+
+**Data Integration (Inbound - Hupyy consumes customer data):**
 - `@hupyy/healthcare-fhir` - HL7 FHIR medical records
 - `@hupyy/finance-swift` - SWIFT financial transactions
 - `@hupyy/compliance-sox` - SOX compliance data
 - `@hupyy/iam-okta` - Okta identity and access logs
 - `@hupyy/audit-splunk` - Splunk audit logs
+
+**Verification Service (Outbound - Hupyy provides verification to AI apps):**
+- `@hupyy/verification-server` - Formal verification service exposed as MCP server
+  - ANY AI application can perform formal verification via MCP
+  - No REST API integration needed - just add to MCP config
+  - Usage-based pricing per verification request
+  - Supports all Hupyy verification modes (natural language, SMT-LIB direct)
 
 ### MCP Data Flow with Verification
 
@@ -370,7 +394,7 @@ graph LR
 
 ### MCP Server Configuration
 
-**Customer-Side Configuration (JSON):**
+**Configuration Example 1: Customer Consuming Their Own Data (Inbound):**
 ```json
 {
   "mcpServers": {
@@ -401,6 +425,39 @@ graph LR
   }
 }
 ```
+
+**Configuration Example 2: AI Developer Using Hupyy Verification (Outbound):**
+```json
+{
+  "mcpServers": {
+    "hupyy-verification": {
+      "command": "npx",
+      "args": ["-y", "@hupyy/verification-server"],
+      "env": {
+        "HUPYY_API_KEY": "hupyy_sk_...",
+        "HUPYY_BASE_URL": "https://api.hupyy.com/v1"
+      }
+    }
+  }
+}
+```
+
+**Usage in AI Application (e.g., Claude Desktop, LangChain):**
+```typescript
+// AI agent can now call formal verification as a tool
+const result = await mcpClient.call("hupyy-verification", "verify", {
+  query: "Did employee E-6112 access secure lab within policy?",
+  mode: "natural_language",
+  model: "sonnet"
+});
+// Returns: { status: "unsat", explanation: "...", report_url: "..." }
+```
+
+**Viral Distribution Advantage:**
+- AI developers add our service with 3 lines of JSON config
+- No SDK installation, no REST API integration needed
+- Works with ANY MCP-enabled AI application (Claude Desktop, custom agents, etc.)
+- Usage-based pricing: pay per verification request
 
 ### MCP Marketplace Strategy
 
@@ -586,16 +643,21 @@ graph TD
 
 ### MCP Server Library (Critical Infrastructure)
 
-| MCP Server | Status | Purpose |
-|------------|--------|---------|
-| `@mcp/postgres` | ✅ Production | PostgreSQL database access |
-| `@mcp/mysql` | ✅ Production | MySQL database access |
-| `@mcp/filesystem` | ✅ Production | Local/network file access |
-| `@hupyy/healthcare-fhir` | 🚧 Q1 2026 | HL7 FHIR medical records |
-| `@hupyy/finance-swift` | 🚧 Q2 2026 | SWIFT financial transactions |
-| `@hupyy/compliance-sox` | 🚧 Q2 2026 | SOX compliance audit data |
-| `@hupyy/iam-okta` | 🚧 Q3 2026 | Okta identity/access logs |
-| `@hupyy/audit-splunk` | 🚧 Q3 2026 | Splunk audit log integration |
+| MCP Server | Status | Purpose | Direction |
+|------------|--------|---------|-----------|
+| `@mcp/postgres` | ✅ Production | PostgreSQL database access | Inbound |
+| `@mcp/mysql` | ✅ Production | MySQL database access | Inbound |
+| `@mcp/filesystem` | ✅ Production | Local/network file access | Inbound |
+| `@hupyy/verification-server` | 🚧 Q1 2026 | **Formal verification service** | **Outbound** |
+| `@hupyy/healthcare-fhir` | 🚧 Q1 2026 | HL7 FHIR medical records | Inbound |
+| `@hupyy/finance-swift` | 🚧 Q2 2026 | SWIFT financial transactions | Inbound |
+| `@hupyy/compliance-sox` | 🚧 Q2 2026 | SOX compliance audit data | Inbound |
+| `@hupyy/iam-okta` | 🚧 Q3 2026 | Okta identity/access logs | Inbound |
+| `@hupyy/audit-splunk` | 🚧 Q3 2026 | Splunk audit log integration | Inbound |
+
+**Direction Legend:**
+- **Inbound:** Hupyy consumes customer data via these MCP servers
+- **Outbound:** Hupyy provides verification services to AI applications via MCP
 
 ### External Dependencies
 
@@ -1233,8 +1295,9 @@ graph TB
 
 **MCP Server Library (CRITICAL PATH):**
 - ✅ Deploy core MCP servers: `@mcp/postgres`, `@mcp/mysql`, `@mcp/filesystem`
-- 🚧 Build `@hupyy/healthcare-fhir` - HL7 FHIR integration
-- 🚧 Build `@hupyy/finance-swift` - SWIFT transaction verification
+- 🚧 **Build `@hupyy/verification-server`** - Expose Hupyy verification as MCP server (OUTBOUND)
+- 🚧 Build `@hupyy/healthcare-fhir` - HL7 FHIR integration (INBOUND)
+- 🚧 Build `@hupyy/finance-swift` - SWIFT transaction verification (INBOUND)
 - 🚧 MCP server discovery and registry infrastructure
 - 🚧 Customer deployment tooling (Docker, Helm charts)
 
@@ -1325,14 +1388,25 @@ graph TB
 | Team | $499/mo | 10,000 | All models | **20 servers + marketplace** | Priority |
 | Enterprise | Custom | Unlimited | Custom | **Unlimited + custom servers** | Dedicated |
 
-### MCP Marketplace Revenue Model
+### MCP Marketplace Revenue Model (Bidirectional)
 
 **Revenue Streams:**
-1. **Core SaaS:** $99-$499/mo per customer (verification queries)
-2. **MCP Server Licensing:** $49-$199/mo per certified MCP server
-3. **Marketplace Commission:** 30% revenue share on third-party MCP servers
-4. **Enterprise MCP Support:** $5K-$50K/year for custom MCP server development
-5. **Professional Services:** MCP server deployment and integration consulting
+1. **Core SaaS:** $99-$499/mo per customer (verification queries via web UI/API)
+2. **MCP Verification Service (OUTBOUND):** $0.10-$0.50 per verification via `@hupyy/verification-server`
+3. **MCP Server Licensing (INBOUND):** $49-$199/mo per certified MCP server
+4. **Marketplace Commission:** 30% revenue share on third-party MCP servers
+5. **Enterprise MCP Support:** $5K-$50K/year for custom MCP server development
+6. **Professional Services:** MCP server deployment and integration consulting
+
+**Outbound MCP Revenue Model (NEW - High Growth Potential):**
+- **Pay-Per-Verification:** AI developers pay only for what they use
+- **Pricing Tiers:**
+  - Simple queries (Haiku): $0.10 per verification
+  - Complex queries (Sonnet): $0.25 per verification
+  - Advanced queries (Opus): $0.50 per verification
+- **Volume Discounts:** 10K verifications/month = 20% off, 100K = 40% off
+- **Target Market:** AI app developers, LangChain users, custom agent builders
+- **Viral Growth:** Every AI app that adds our MCP server becomes a distribution channel
 
 **MCP Server Pricing:**
 | MCP Server | Price/Month | Target Customers |
@@ -1368,13 +1442,17 @@ graph TB
 
 ### Unique Value Propositions
 
-1. **MCP-First Architecture (CRITICAL DIFFERENTIATOR):** Only formal verification platform built on pluggable MCP servers for zero-code customer data integration
+1. **Bidirectional MCP Architecture (CRITICAL DIFFERENTIATOR):**
+   - **INBOUND:** Only formal verification platform built on pluggable MCP servers for zero-code customer data integration
+   - **OUTBOUND:** Only verification service that AI applications can consume via MCP (no REST API needed)
+   - **Network Effects x2:** We're both a consumer AND provider in the MCP ecosystem
 2. **AI + Formal Methods Convergence:** Only platform combining LLM natural language understanding with rigorous SMT verification
 3. **MCP Marketplace Ecosystem:** Build platform of domain-specific MCP servers (healthcare, finance, compliance)
 4. **Customer Data Never Leaves Customer:** MCP servers run on-premise/in customer VPC - superior security model
-5. **5-Phase Structured Approach:** Proprietary prompt engineering for reliable SMT-LIB generation
-6. **TDD Loop:** Automatic error recovery increases success rate
-7. **Multi-Domain:** Not limited to one verification domain (temporal, data, mathematical, graph theory)
+5. **Viral Distribution via MCP:** AI developers add verification with 3 lines of JSON config - no SDK, no API integration
+6. **5-Phase Structured Approach:** Proprietary prompt engineering for reliable SMT-LIB generation
+7. **TDD Loop:** Automatic error recovery increases success rate
+8. **Multi-Domain:** Not limited to one verification domain (temporal, data, mathematical, graph theory)
 
 ### Barriers to Entry (MCP-Powered Moats)
 
@@ -1506,10 +1584,14 @@ graph TB
 
 ## Conclusion
 
-Hupyy Temporal represents a unique convergence of AI and formal methods, addressing a critical gap in the market for accessible, reliable formal verification. **Our MCP-first architecture creates a defensible platform moat** through pluggable data connectors that integrate seamlessly with customer infrastructure.
+Hupyy Temporal represents a unique convergence of AI and formal methods, addressing a critical gap in the market for accessible, reliable formal verification. **Our bidirectional MCP architecture creates a defensible platform moat** through pluggable data connectors that integrate seamlessly with customer infrastructure PLUS viral distribution as an AI-consumable service.
 
 **Key Strengths:**
-- **MCP-First Architecture:** Only formal verification platform built on pluggable MCP servers - CRITICAL DIFFERENTIATOR
+- **Bidirectional MCP Architecture:** ONLY formal verification platform that both:
+  - **CONSUMES customer data** via pluggable MCP servers (zero integration cost)
+  - **PROVIDES verification services** to ANY AI application via MCP (viral distribution)
+- **Network Effects x2:** We're both a consumer AND provider in the MCP ecosystem
+- **Viral Distribution:** AI developers add verification with 3 lines of JSON - no SDK, no API integration
 - **MCP Marketplace Potential:** Platform for domain-specific connectors (healthcare, finance, compliance)
 - **Superior Security Model:** Customer data never leaves customer infrastructure via MCP servers
 - Proven technology stack combining AI + formal methods
@@ -1519,38 +1601,47 @@ Hupyy Temporal represents a unique convergence of AI and formal methods, address
 - Strong competitive moats (18-24 months for MCP library + certifications)
 
 **Investment Opportunity:**
-- **MCP Ecosystem Play:** First-mover advantage in MCP-based formal verification
-- Large addressable market (compliance, verification, academia) + **MCP marketplace revenue**
-- High gross margins (SaaS: 70-80%, **MCP marketplace: 85-95%**)
-- **Network effects** through MCP server library and developer community
+- **Bidirectional MCP Ecosystem Play:** First-mover advantage in MCP-based formal verification (both consumer AND provider)
+- **Viral Growth Potential:** Every AI app that adds our MCP server = new distribution channel
+- Large addressable market (compliance, verification, academia) + **MCP marketplace revenue + MCP verification API revenue**
+- High gross margins (SaaS: 70-80%, **MCP services: 85-95%**)
+- **Network effects x2** through:
+  - MCP server library (inbound data integration)
+  - AI developer community (outbound verification service)
 - Defensible technical moat (MCP servers + prompt engineering + domain expertise)
 - Experienced solo founder with full-stack capabilities
-- Clear 3-year path to **$4M ARR (SaaS) + $1-2M ARR (MCP marketplace) = $5-6M total**
+- Clear 3-year path to **$4M ARR (SaaS) + $1-2M ARR (MCP marketplace) + $0.5-1M ARR (MCP verification API) = $5.5-7M total**
 
-**MCP-Specific Value:**
-- **Customer Lock-In:** MCP servers deployed in customer infrastructure = high switching cost
+**Bidirectional MCP Value:**
+- **Customer Lock-In (Inbound):** MCP servers deployed in customer infrastructure = high switching cost
+- **Developer Adoption (Outbound):** AI developers integrate verification as easily as adding a config line
 - **Integration Partnerships:** Co-marketing with Salesforce, Workday, Epic for certified MCP servers
 - **Developer Ecosystem:** 70/30 revenue share attracts third-party MCP server developers
 - **Regulatory Advantage:** SOC 2, HIPAA, PCI certified MCP servers = hard to replicate
+- **Viral Distribution:** Every Claude Desktop user, LangChain builder, AI agent can add formal verification
 
 **Next Steps:**
-1. **Build 3-5 core MCP servers** (PostgreSQL, MySQL, healthcare FHIR, finance SWIFT) - Q1 2026
-2. Validate product-market fit with pilot customers using MCP integrations
-3. Extract API layer with MCP configuration endpoints (Q1 2026)
-4. **Raise seed funding ($500K)** - emphasize MCP moat and marketplace potential
-5. Hire 2-3 key team members (backend engineer for MCP infrastructure, domain expert for healthcare/finance)
-6. Launch public beta with free tier **+ 3 free MCP servers**
-7. **Launch MCP marketplace** (Q3 2026) with certification program
+1. **Build `@hupyy/verification-server`** - Expose Hupyy as MCP server (OUTBOUND) - Q1 2026
+2. **Build 3-5 core MCP servers** (PostgreSQL, MySQL, healthcare FHIR, finance SWIFT) - Q1 2026 (INBOUND)
+3. Validate product-market fit with:
+   - Enterprise customers using MCP data integrations (inbound)
+   - AI developers using MCP verification service (outbound)
+4. Extract API layer with MCP configuration endpoints (Q1 2026)
+5. **Raise seed funding ($500K)** - emphasize bidirectional MCP moat and viral growth potential
+6. Hire 2-3 key team members (backend engineer for MCP infrastructure, AI developer relations)
+7. Launch public beta with free tier **+ 3 free MCP servers + free MCP verification tier (100 requests/month)**
+8. **Launch MCP marketplace** (Q3 2026) with certification program
 
 ---
 
 **Document Metadata:**
-- **Version:** 2.0.0 (MCP-First Edition)
+- **Version:** 2.1.0 (Bidirectional MCP Edition)
 - **Author:** Hupyy Temporal Team
-- **Last Updated:** November 4, 2025
+- **Last Updated:** November 5, 2025
 - **Status:** Living Document
 - **Next Review:** December 1, 2025
-- **Major Changes:** Added comprehensive MCP Server Architecture as primary data integration strategy (6 new diagrams, MCP marketplace business model, updated roadmap and competitive analysis)
+- **Major Changes (v2.1.0):** Added bidirectional MCP strategy - Hupyy now both CONSUMES customer data via MCP servers AND PROVIDES verification services as MCP server (`@hupyy/verification-server`). Updated revenue model, roadmap, competitive advantages, and conclusion to reflect viral distribution potential.
+- **Previous Changes (v2.0.0):** Added comprehensive MCP Server Architecture as primary data integration strategy (6 new diagrams, MCP marketplace business model, updated roadmap and competitive analysis)
 
 **Related Documents:**
 - [Prompt Engineering Analysis](PROMPT_ENGINEERING_ANALYSIS.md)
