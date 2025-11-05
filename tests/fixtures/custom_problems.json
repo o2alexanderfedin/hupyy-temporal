@@ -1,0 +1,85 @@
+{
+  "simple_before": {
+    "problem": {
+      "events": [
+        {"name": "A", "timestamp": 0},
+        {"name": "B", "timestamp": 10}
+      ],
+      "constraints": [
+        {"type": "before", "event1": "A", "event2": "B"}
+      ],
+      "query": {
+        "type": "possible",
+        "description": "Can B happen after A?"
+      }
+    },
+    "expected_answer": true,
+    "description": "Simple temporal ordering constraint"
+  },
+  "simple_conflict": {
+    "problem": {
+      "events": [
+        {"name": "X", "timestamp": 5},
+        {"name": "Y", "timestamp": 3}
+      ],
+      "constraints": [
+        {"type": "before", "event1": "X", "event2": "Y"}
+      ],
+      "query": {
+        "type": "possible",
+        "description": "Can X happen before Y given their timestamps?"
+      }
+    },
+    "expected_answer": false,
+    "description": "Conflicting timestamp and ordering constraint"
+  },
+  "complex_scheduling": {
+    "problem": {
+      "events": [
+        {"name": "task1_start", "timestamp": 0},
+        {"name": "task1_end", "timestamp": 5},
+        {"name": "task2_start", "timestamp": 3},
+        {"name": "task2_end", "timestamp": 8},
+        {"name": "task3_start", "timestamp": 5},
+        {"name": "task3_end", "timestamp": 10}
+      ],
+      "constraints": [
+        {"type": "before", "event1": "task1_start", "event2": "task1_end"},
+        {"type": "before", "event1": "task2_start", "event2": "task2_end"},
+        {"type": "before", "event1": "task3_start", "event2": "task3_end"},
+        {"type": "no_overlap", "task1": ["task1_start", "task1_end"], "task2": ["task2_start", "task2_end"]}
+      ],
+      "query": {
+        "type": "possible",
+        "description": "Can tasks be scheduled without overlap?"
+      }
+    },
+    "expected_answer": false,
+    "description": "Complex scheduling with multiple tasks and no-overlap constraint"
+  },
+  "minimal_valid": {
+    "problem": {
+      "events": [
+        {"name": "start", "timestamp": 0},
+        {"name": "end", "timestamp": 1}
+      ],
+      "constraints": [],
+      "query": {
+        "type": "possible",
+        "description": "Minimal valid problem"
+      }
+    },
+    "expected_answer": true,
+    "description": "Minimal valid problem with no constraints"
+  },
+  "invalid_json": {
+    "raw_text": "{\"incomplete\": ",
+    "expected_error": "invalid JSON",
+    "description": "Invalid JSON for error handling"
+  },
+  "empty_problem": {
+    "raw_text": "",
+    "expected_error": "empty input",
+    "description": "Empty input for validation"
+  }
+}

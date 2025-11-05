@@ -1,0 +1,156 @@
+/* ============================================
+   SALESFORCE-STYLE BUTTON COMPONENTS
+   TASK-003 Implementation
+   Based on docs/ui-ux/ui-ux-spec.md lines 20-25, 46-48
+   Reference: docs/ui-ux/generated_image_november_03__2025_-_9_14pm_720.png
+   ============================================ */
+
+/* ============================================
+   PRIMARY BUTTON - Salesforce Lightning Blue
+   ============================================ */
+
+.hupyy-button-primary,
+button[kind="primary"],
+.stButton > button {
+    /* Salesforce gradient - Spec lines 20-22 */
+    background: linear-gradient(
+        180deg,
+        var(--primary-blue-start) 0%,     /* #0176D3 */
+        var(--primary-blue-end) 100%      /* #0192FF */
+    ) !important;
+
+    /* Dimensions & Spacing */
+    padding: 12px 32px !important;
+    border-radius: var(--radius-button) !important;   /* 10px per spec line 24 */
+
+    /* Typography */
+    font-family: var(--font-primary) !important;
+    font-size: 1rem !important;
+    font-weight: var(--font-weight-semibold) !important;
+    color: #ffffff !important;
+    letter-spacing: 0.02em !important;
+
+    /* 3D Layering - Shadows */
+    border: none !important;
+    box-shadow:
+        0 3px 10px rgba(1, 118, 211, 0.15),        /* Soft blue glow */
+        inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;    /* Top highlight for 3D */
+
+    /* Interaction */
+    cursor: pointer !important;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    transform: translateY(0) !important;
+
+    /* Remove Streamlit defaults */
+    background-color: transparent !important;
+    background-image: none !important;
+}
+
+/* Hover State - Spec line 25: "brightness +8%, glow +4%, 2px lift" */
+.hupyy-button-primary:hover,
+button[kind="primary"]:hover,
+.stButton > button:hover {
+    /* Brightness +8% */
+    filter: brightness(1.08) !important;
+
+    /* Enhanced glow +4% */
+    box-shadow:
+        0 5px 16px rgba(1, 118, 211, 0.25),        /* Glow increased */
+        inset 0 1px 0 rgba(255, 255, 255, 0.25) !important;
+
+    /* Lift 2px upward */
+    transform: translateY(-2px) !important;
+}
+
+/* Pressed/Active State */
+.hupyy-button-primary:active,
+button[kind="primary"]:active,
+.stButton > button:active {
+    /* Push down */
+    transform: translateY(1px) !important;
+
+    /* Reduce shadow (pressed in effect) */
+    box-shadow:
+        0 2px 6px rgba(1, 118, 211, 0.2),
+        inset 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+
+    /* Slight darkening */
+    filter: brightness(0.95) !important;
+}
+
+/* Disabled State */
+.hupyy-button-primary:disabled,
+button[kind="primary"]:disabled,
+.stButton > button:disabled {
+    opacity: 0.6 !important;
+    cursor: not-allowed !important;
+    transform: translateY(0) !important;
+    filter: grayscale(0.3) !important;
+}
+
+/* ============================================
+   RESULT BUTTON - "SHOW ME THE PROOF"
+   Spec lines 46-48
+   ============================================ */
+
+.hupyy-button-proof {
+    /* Same base gradient */
+    background: linear-gradient(
+        180deg,
+        var(--primary-blue-start) 0%,
+        var(--primary-blue-end) 100%
+    ) !important;
+
+    /* Larger for prominence */
+    padding: 16px 48px !important;
+    font-size: 1.125rem !important;
+    font-weight: var(--font-weight-bold) !important;
+
+    border-radius: var(--radius-button) !important;
+    color: #ffffff !important;
+    border: none !important;
+    cursor: pointer !important;
+
+    /* Enhanced shadow for card context */
+    box-shadow:
+        0 4px 12px rgba(1, 118, 211, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+
+    transition: all 0.2s ease-out !important;
+}
+
+/* Hover - Spec line 48: "subtle gloss overlay, inner shadow fade-in, arrow slides 4px right" */
+.hupyy-button-proof:hover {
+    filter: brightness(1.08) !important;
+    box-shadow:
+        0 6px 18px rgba(1, 118, 211, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.3),
+        inset 0 -2px 6px rgba(0, 0, 0, 0.1) !important;  /* Inner shadow fade-in */
+    transform: translateY(-2px) !important;
+}
+
+/* ============================================
+   SECONDARY BUTTON (Outline)
+   ============================================ */
+
+.hupyy-button-secondary {
+    background: transparent !important;
+    border: 2px solid var(--primary-blue-start) !important;
+    color: var(--primary-blue-start) !important;
+
+    padding: 10px 30px !important;
+    border-radius: var(--radius-button) !important;
+    font-family: var(--font-primary) !important;
+    font-size: 1rem !important;
+    font-weight: var(--font-weight-semibold) !important;
+
+    cursor: pointer !important;
+    transition: all 0.2s ease-out !important;
+}
+
+.hupyy-button-secondary:hover {
+    background: var(--primary-blue-start) !important;
+    color: #ffffff !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 4px 12px rgba(1, 118, 211, 0.2) !important;
+}

@@ -1,0 +1,206 @@
+/* ============================================
+   BACKGROUND GRADIENTS & GLASS EFFECTS
+   TASK-006 Implementation
+   Based on docs/ui-ux/ui-ux-spec.md lines 9-10, 25-27, 58-59
+   ============================================ */
+
+/* ============================================
+   MAIN BACKGROUND GRADIENT
+   Spec lines 9-10, 58: "white → silver gradient with light vignette"
+   Spec line 25: "soft gradient (#F9FAFB → #EAECEE)"
+   ============================================ */
+
+body,
+.stApp,
+[data-testid="stAppViewContainer"] {
+    /* Apple-style gradient: off-white to silver */
+    background: linear-gradient(
+        135deg,
+        var(--bg-gradient-start) 0%,      /* #F9FAFB */
+        var(--bg-gradient-end) 100%       /* #EAECEE */
+    ) !important;
+
+    /* Fixed background (no scroll) */
+    background-attachment: fixed !important;
+
+    /* Ensure full coverage */
+    min-height: 100vh !important;
+}
+
+/* ============================================
+   VIGNETTE OVERLAY
+   Spec line 9: "light vignette, Apple-glass subtlety"
+   Spec line 26: "Micro reflections and shadows evoke 'Mac meets cloud enterprise'"
+   ============================================ */
+
+body::before,
+.stApp::before {
+    content: '' !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    pointer-events: none !important;
+    z-index: 0 !important;
+
+    /* Subtle radial vignette - darker at edges */
+    background: radial-gradient(
+        ellipse at center,
+        transparent 0%,
+        transparent 60%,
+        var(--vignette-overlay) 100%      /* rgba(0, 0, 0, 0.03) */
+    ) !important;
+}
+
+/* Ensure content stays above vignette */
+.stApp > div,
+.stApp > section,
+[data-testid="stAppViewContainer"] > section {
+    position: relative !important;
+    z-index: 1 !important;
+}
+
+/* ============================================
+   GLASS EFFECT UTILITIES
+   Spec line 26: "Micro reflections and shadows"
+   Spec line 48: "frosted white background"
+   ============================================ */
+
+.hupyy-glass,
+.glass-effect {
+    background: var(--glass-white) !important;        /* rgba(255, 255, 255, 0.8) */
+    backdrop-filter: blur(12px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(12px) saturate(180%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+}
+
+.hupyy-glass-dark,
+.glass-effect-dark {
+    background: var(--glass-white-dark) !important;   /* rgba(255, 255, 255, 0.95) */
+    backdrop-filter: blur(20px) saturate(200%) !important;
+    -webkit-backdrop-filter: blur(20px) saturate(200%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.5) !important;
+}
+
+/* Glass for proof panels - Spec line 48 */
+.hupyy-proof-panel,
+.proof-panel-glass {
+    background: rgba(255, 255, 255, 0.9) !important;
+    backdrop-filter: blur(16px) !important;
+    -webkit-backdrop-filter: blur(16px) !important;
+    border: 1px solid rgba(0, 0, 0, 0.05) !important;
+    box-shadow: var(--shadow-card-soft) !important;
+}
+
+/* ============================================
+   SHADOW UTILITIES
+   Spec line 66: "rgba(0,0,0,0.1) soft and elevated"
+   ============================================ */
+
+/* Soft shadow for cards and panels */
+.hupyy-shadow-soft {
+    box-shadow: 0 4px 12px var(--shadow-soft) !important;    /* rgba(0, 0, 0, 0.1) */
+}
+
+.hupyy-shadow-medium {
+    box-shadow: 0 8px 20px var(--shadow-medium) !important;  /* rgba(0, 0, 0, 0.15) */
+}
+
+.hupyy-shadow-elevated {
+    box-shadow: var(--shadow-elevated) !important;           /* 0 8px 24px rgba(0, 0, 0, 0.1) */
+}
+
+/* Card-specific shadow - Spec line 38: "soft drop shadow (#00000015)" */
+.hupyy-card-shadow {
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08) !important;
+}
+
+/* ============================================
+   SHIMMER ANIMATION OVERLAY
+   Spec line 35: "Subtle shimmer animation across background — faint moving light band"
+   Will be expanded in TASK-007 (Animations)
+   ============================================ */
+
+@keyframes shimmer-sweep {
+    0% {
+        transform: translateX(-100%);
+        opacity: 0;
+    }
+    50% {
+        opacity: 0.3;
+    }
+    100% {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+}
+
+.hupyy-shimmer-bg {
+    position: relative !important;
+    overflow: hidden !important;
+}
+
+.hupyy-shimmer-bg::after {
+    content: '' !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    background: linear-gradient(
+        90deg,
+        transparent 0%,
+        rgba(255, 255, 255, 0.4) 50%,
+        transparent 100%
+    ) !important;
+    transform: translateX(-100%) !important;
+    pointer-events: none !important;
+}
+
+.hupyy-shimmer-bg.active::after {
+    animation: shimmer-sweep 2s ease-in-out !important;
+}
+
+/* ============================================
+   MICRO REFLECTIONS
+   Spec line 26: "Micro reflections and shadows evoke 'Mac meets cloud enterprise'"
+   ============================================ */
+
+.hupyy-reflection {
+    position: relative !important;
+}
+
+.hupyy-reflection::before {
+    content: '' !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    height: 50% !important;
+    background: linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.1) 0%,
+        transparent 100%
+    ) !important;
+    pointer-events: none !important;
+}
+
+/* ============================================
+   CONTAINER BACKGROUNDS
+   For cards and panels that sit on the gradient background
+   ============================================ */
+
+.hupyy-container-white {
+    background: #ffffff !important;
+    border-radius: var(--radius-card) !important;
+    box-shadow: var(--shadow-card-soft) !important;
+}
+
+.hupyy-container-glass {
+    background: rgba(255, 255, 255, 0.85) !important;
+    backdrop-filter: blur(10px) !important;
+    -webkit-backdrop-filter: blur(10px) !important;
+    border-radius: var(--radius-card) !important;
+    border: 1px solid rgba(255, 255, 255, 0.4) !important;
+}

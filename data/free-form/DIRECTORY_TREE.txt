@@ -1,0 +1,332 @@
+================================================================================
+COMPLETE DIRECTORY TREE - Hupyy Temporal Free-Form Test Suite
+================================================================================
+Location: ~/Projects/hapyy/cofounder/hupyy-temporal/data/free-form/
+Total Tests: 48 (P0: 18, P1: 10, P2: 10, P3: 10)
+Version: 1.0
+Date: 2025-10-29
+================================================================================
+
+data/free-form/
+│
+├── README.md ................................. Top-level documentation
+├── DIRECTORY_TREE.txt ........................ This file
+│
+├── P0-core/ .................................. PRIORITY 0: CRITICAL (18 tests)
+│   │                                           Must Pass: 100% required
+│   ├── README.md ............................. P0 overview and success criteria
+│   │
+│   ├── temporal/ ............................. Temporal Reasoning (10 tests)
+│   │   │                                       Logic: QF_IDL
+│   │   ├── README.md ......................... Temporal test documentation
+│   │   │
+│   │   ├── sat/ .............................. 6 Satisfiable Cases
+│   │   │   ├── 001-simple-ordering.md ........ ✓ Linear event sequence (A→B→C)
+│   │   │   ├── 003-parallel-events.md ........ ✓ Independent concurrent events
+│   │   │   ├── 005-allen-before.md ........... ✓ Allen's "before" relation
+│   │   │   ├── 006-allen-meets.md ............ ✓ Allen's "meets" relation
+│   │   │   ├── 007-allen-overlaps.md ......... ✓ Allen's "overlaps" relation
+│   │   │   └── 009-project-schedule.md ....... ✓ Task dependencies with deadlines
+│   │   │
+│   │   └── unsat/ ............................ 4 Unsatisfiable Cases
+│   │       ├── 002-circular-time.md .......... ✗ Temporal paradox (A<B<C<A)
+│   │       ├── 004-meeting-conflict.md ....... ✗ Overlapping exclusive meetings
+│   │       ├── 008-negative-cycle.md ......... ✗ Negative cycle in diff graph
+│   │       └── 010-impossible-deadline.md .... ✗ Unsatisfiable timing constraints
+│   │
+│   └── lia/ .................................. Linear Integer Arithmetic (8 tests)
+│       │                                       Logic: QF_LIA
+│       ├── README.md ......................... LIA test documentation
+│       │
+│       ├── sat/ .............................. 5 Satisfiable Cases
+│       │   ├── 001-simple-constraint.md ...... ✓ Basic: x + y > 10
+│       │   ├── 003-resource-allocation.md .... ✓ 3 tasks, 2 workers
+│       │   ├── 005-budget-planning.md ........ ✓ Cost optimization
+│       │   ├── 007-large-sparse.md ........... ✓ 100+ vars, sparse constraints
+│       │   └── 008-large-dense.md ............ ✓ 100+ vars, dense constraints
+│       │
+│       └── unsat/ ............................ 3 Unsatisfiable Cases
+│           ├── 002-infeasible-system.md ...... ✗ x > 10 AND x < 5
+│           ├── 004-over-allocation.md ........ ✗ 10 tasks, 3 workers, 2 slots
+│           └── 006-capacity-exceeded.md ...... ✗ sum(resources) > capacity
+│
+│
+├── P1-important/ ............................. PRIORITY 1: IMPORTANT (10 tests)
+│   │                                           Should Pass: ≥90% required
+│   ├── README.md ............................. P1 overview and acceptance criteria
+│   │
+│   ├── rbac/ ................................. Role-Based Access Control (6 tests)
+│   │   │                                       Logic: QF_UFLIA
+│   │   ├── README.md ......................... RBAC test documentation
+│   │   │
+│   │   ├── sat/ .............................. 4 Allow Cases
+│   │   │   ├── 001-basic-allow.md ............ ✓ Simple user-role-permission
+│   │   │   ├── 003-group-membership.md ....... ✓ User inherits role from group
+│   │   │   ├── 004-permission-hierarchy.md ... ✓ Write implies read
+│   │   │   └── 006-wildcard-paths.md ......... ✓ Resource path matching (/api/*)
+│   │   │
+│   │   └── unsat/ ............................ 2 Deny Cases
+│   │       ├── 002-basic-deny.md ............. ✗ User lacks permission
+│   │       └── 005-deny-override.md .......... ✗ Explicit deny blocks access
+│   │
+│   └── quantifier/ ........................... Quantified Formulas (4 tests)
+│       │                                       Logic: UFLIA (with quantifiers)
+│       ├── README.md ......................... Quantifier test documentation
+│       │
+│       └── unknown/ .......................... 4 Unknown Cases (Expected)
+│           ├── 001-universal-property.md ..... ? ∀x. f(x) > 0
+│           ├── 002-transitivity.md ........... ? ∀x,y,z. R(x,y)∧R(y,z)→R(x,z)
+│           ├── 003-permission-inheritance.md . ? ∀u. inGroup(u,g)→hasRole(u,r)
+│           └── 004-array-invariant.md ........ ? ∀i. 0≤i<n → valid(arr[i])
+│
+│
+├── P2-advanced/ .............................. PRIORITY 2: ADVANCED (10 tests)
+│   │                                           Nice To Pass: ≥70% required
+│   ├── README.md ............................. P2 overview and performance goals
+│   │
+│   ├── mixed/ ................................ Mixed Theory Tests (5 tests)
+│   │   │                                       Logic: Various combinations
+│   │   ├── README.md ......................... Mixed theory documentation
+│   │   │
+│   │   ├── sat/ .............................. 4 Solvable Cases
+│   │   │   ├── 001-temporal-rbac.md .......... ✓ Time-based access control
+│   │   │   ├── 002-allocation-scheduling.md .. ✓ Resource + temporal constraints
+│   │   │   ├── 003-arrays-functions.md ....... ✓ QF_AUFLIA scenario
+│   │   │   └── 004-complex-workflow.md ....... ✓ Multi-step process verification
+│   │   │
+│   │   └── unknown/ .......................... 1 Complex Case
+│   │       └── 005-distributed-system.md ..... ? Distributed consensus protocol
+│   │
+│   └── scale/ ................................ Scalability Tests (5 tests)
+│       │                                       Logic: QF_IDL (performance focus)
+│       ├── README.md ......................... Scalability benchmarks
+│       │
+│       ├── sat/ .............................. 4 Solvable Scales
+│       │   ├── 001-tiny-10vars.md ............ ✓ 10 variables (<10ms)
+│       │   ├── 002-small-50vars.md ........... ✓ 50 variables (<100ms)
+│       │   ├── 003-medium-500vars.md ......... ✓ 500 variables (<1s)
+│       │   └── 004-large-5000vars.md ......... ✓ 5000 variables (<10s)
+│       │
+│       └── timeout/ .......................... 1 Extreme Scale
+│           └── 005-huge-50000vars.md ......... ⏱ 50000 variables (timeout OK)
+│
+│
+└── P3-edge/ .................................. PRIORITY 3: EDGE CASES (10 tests)
+    │                                           Robustness: No crashes required
+    ├── README.md ............................. P3 overview and handling goals
+    │
+    ├── sat/ .................................. 5 Satisfiable Edge Cases
+    │   ├── 002-single-variable.md ............ ✓ Single var, single constraint
+    │   ├── 005-all-equal.md .................. ✓ All variables equal
+    │   ├── 007-zero-delta.md ................. ✓ Zero time differences
+    │   ├── 008-large-delta.md ................ ✓ Very large time gaps
+    │   └── 009-negative-time.md .............. ✓ Negative time values (valid)
+    │
+    ├── unsat/ ................................ 2 Unsatisfiable Edge Cases
+    │   ├── 004-contradiction.md .............. ✗ Direct logical contradiction
+    │   └── 006-all-distinct.md ............... ✗ Too many distinct values
+    │
+    └── trivial/ .............................. 3 Trivial Cases
+        ├── 001-empty-constraints.md .......... ⚪ No constraints (always SAT)
+        ├── 003-tautology.md .................. ⚪ Always true (x = x)
+        └── 010-boundary-values.md ............ ⚪ INT_MIN, INT_MAX values
+
+================================================================================
+LEGEND
+================================================================================
+✓ = Expected SAT (solver should find satisfying model)
+✗ = Expected UNSAT (solver should prove unsatisfiable)
+? = Expected UNKNOWN (acceptable for hard problems with quantifiers)
+⏱ = Expected TIMEOUT (acceptable for extreme scalability tests)
+⚪ = Trivial (degenerate cases, fast SAT expected)
+
+================================================================================
+OUTCOME DISTRIBUTION
+================================================================================
+Total Tests:        48
+├── SAT:            28 (58%)
+├── UNSAT:          11 (23%)
+├── UNKNOWN:         5 (10%)
+├── TIMEOUT:         1 (2%)
+└── TRIVIAL:         3 (6%)
+
+By Priority:
+├── P0-core:        18 (SAT: 11, UNSAT: 7)
+├── P1-important:   10 (SAT: 4, UNSAT: 2, UNKNOWN: 4)
+├── P2-advanced:    10 (SAT: 8, UNKNOWN: 1, TIMEOUT: 1)
+└── P3-edge:        10 (SAT: 5, UNSAT: 2, TRIVIAL: 3)
+
+By Category:
+├── temporal:       10 (SAT: 6, UNSAT: 4)
+├── lia:             8 (SAT: 5, UNSAT: 3)
+├── rbac:            6 (SAT: 4, UNSAT: 2)
+├── quantifier:      4 (UNKNOWN: 4)
+├── mixed:           5 (SAT: 4, UNKNOWN: 1)
+├── scale:           5 (SAT: 4, TIMEOUT: 1)
+└── edge:           10 (SAT: 5, UNSAT: 2, TRIVIAL: 3)
+
+================================================================================
+PATH PATTERNS FOR QUICK ACCESS
+================================================================================
+
+All SAT tests:
+    find data/free-form -path "*/sat/*.md"
+
+All UNSAT tests:
+    find data/free-form -path "*/unsat/*.md"
+
+All UNKNOWN tests:
+    find data/free-form -path "*/unknown/*.md"
+
+All P0 tests (critical):
+    find data/free-form/P0-core -name "*.md"
+
+All temporal tests:
+    find data/free-form -path "*/temporal/*.md"
+
+All RBAC tests:
+    find data/free-form -path "*/rbac/*.md"
+
+All tests by complexity:
+    ls data/free-form/P0-core/**/*.md      # Core (easy-medium)
+    ls data/free-form/P1-important/**/*.md # Important (medium-hard)
+    ls data/free-form/P2-advanced/**/*.md  # Advanced (hard-very hard)
+    ls data/free-form/P3-edge/**/*.md      # Edge cases (trivial-medium)
+
+================================================================================
+FILE SIZE EXPECTATIONS
+================================================================================
+
+Test File Size Guidelines:
+├── Trivial (P3):      50-200 lines   (simple scenarios)
+├── Easy (P0):        100-300 lines   (straightforward problems)
+├── Medium (P1):      200-500 lines   (complex scenarios)
+├── Hard (P2):        300-1000 lines  (multi-theory, large scale)
+└── Documentation:   1000-5000 lines  (READMEs, guides)
+
+Total estimated disk usage: ~2-5 MB for all 48 tests
+
+================================================================================
+TEST EXECUTION ORDER
+================================================================================
+
+Recommended execution order for CI/CD:
+
+1. P3-edge/trivial/      (sanity check, <1s total)
+2. P0-core/temporal/sat/ (core functionality, ~1s total)
+3. P0-core/temporal/unsat/
+4. P0-core/lia/sat/
+5. P0-core/lia/unsat/
+6. P1-important/rbac/sat/
+7. P1-important/rbac/unsat/
+8. P1-important/quantifier/unknown/ (UNKNOWN acceptable)
+9. P2-advanced/mixed/sat/
+10. P2-advanced/mixed/unknown/ (UNKNOWN acceptable)
+11. P2-advanced/scale/sat/ (performance test)
+12. P2-advanced/scale/timeout/ (timeout acceptable)
+13. P3-edge/sat/
+14. P3-edge/unsat/
+
+Total estimated execution time (excluding AI generation):
+- Best case:  ~30 seconds (all fast paths)
+- Typical:    ~2-5 minutes (with P2 tests)
+- Worst case: ~10 minutes (with timeouts)
+
+================================================================================
+MAINTENANCE SCHEDULE
+================================================================================
+
+Weekly:
+- Review CI/CD test results
+- Update any tests with unexpected outcomes
+- Check for new solver versions
+
+Monthly:
+- Performance benchmarking (track solve times)
+- Add new tests for discovered edge cases
+- Update documentation for clarity
+
+Quarterly:
+- Full test suite audit
+- Retirement of obsolete tests
+- Addition of real-world scenarios from production
+
+================================================================================
+INTEGRATION POINTS
+================================================================================
+
+Test Suite Consumers:
+
+1. **CI/CD Pipeline** (.github/workflows/test.yml)
+   - Runs on every commit
+   - Blocks merge on P0 failures
+   - Warns on P1/P2 issues
+
+2. **Manual Test Runner** (tests/test_runner.py)
+   - For local development
+   - Interactive test selection
+   - Detailed failure reports
+
+3. **Streamlit Dashboard** (demo/app.py)
+   - Visual test results
+   - Browse test categories
+   - Run individual tests
+
+4. **Batch Processor** (scripts/batch_test.py)
+   - Runs all tests in parallel
+   - Generates comprehensive reports
+   - Exports to JSON/CSV
+
+================================================================================
+TROUBLESHOOTING
+================================================================================
+
+If tests fail unexpectedly:
+
+1. Check directory structure matches this file
+2. Verify expected outcome from path (sat/unsat/unknown)
+3. Read test .md file for problem description
+4. Run solver manually on generated SMT-LIB
+5. Check logic selection in generated code
+6. Compare with test matrix documentation
+7. Report issue with full logs
+
+Common False Positives:
+- Wrong logic selected (QF_UFLIA vs UFLIA)
+- Missing declarations (undefined symbols)
+- Timeout mistaken for UNKNOWN
+- Model validation errors (SAT but constraints not satisfied)
+
+Common False Negatives:
+- Over-constrained problem (should be UNSAT but coded as SAT)
+- Missing constraint in generated SMT-LIB
+- Solver bug or limitation
+
+================================================================================
+REFERENCES
+================================================================================
+
+- Test Matrix:        data/smt-lib-test-matrix.md
+- Main README:        data/free-form/README.md
+- P0 Documentation:   data/free-form/P0-core/README.md
+- P1 Documentation:   data/free-form/P1-important/README.md
+- P2 Documentation:   data/free-form/P2-advanced/README.md
+- P3 Documentation:   data/free-form/P3-edge/README.md
+- SMT-LIB Standard:   http://smtlib.cs.uiowa.edu/
+- cvc5 Docs:          https://cvc5.github.io/
+
+================================================================================
+VERSION HISTORY
+================================================================================
+
+v1.0 (2025-10-29)
+- Initial directory structure created
+- All 48 test slots defined
+- Documentation framework established
+- README files for all levels
+
+NEXT: Generate actual test content files
+
+================================================================================
+END OF DIRECTORY TREE
+================================================================================

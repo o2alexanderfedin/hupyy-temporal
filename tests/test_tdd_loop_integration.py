@@ -18,6 +18,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
+# Import ClaudeClient for AI integration
+from ai.claude_client import ClaudeClient, ClaudeTimeoutError
+from config.constants import TIMEOUT_AI_CONVERSION, TIMEOUT_AI_ERROR_FIXING
+
 # Import functions from the SMT-LIB Direct page
 # We'll import them dynamically since it's a Streamlit page
 import importlib.util
@@ -26,6 +30,7 @@ spec = importlib.util.spec_from_file_location(
     "smt_lib_direct",
     ROOT / "demo" / "pages" / "2_SMT_LIB_Direct.py"
 )
+assert spec is not None, "Failed to create module spec for SMT_LIB_Direct page"
 smt_lib_direct = importlib.util.module_from_spec(spec)
 
 
@@ -49,6 +54,22 @@ SMT-LIB v2.7 is the current standard (2025). Use modern syntax:
 - Algebraic datatypes with match expressions
 - Latest theory semantics
 
+CRITICAL - Logic Selection (choose the RIGHT logic to avoid errors):
+
+1. NEVER use quantifiers (forall/exists) with QF_* logics - they are Quantifier-Free!
+   - QF_UFLIA = Quantifier-Free, Uninterpreted Functions, Linear Integer Arithmetic
+   - QF_IDL = Quantifier-Free, Integer Difference Logic
+   - QF_LIA = Quantifier-Free, Linear Integer Arithmetic
+
+2. If problem requires quantifiers (forall/exists), use non-QF logics:
+   - UFLIA = Uninterpreted Functions + Linear Integer Arithmetic (with quantifiers)
+   - LIA = Linear Integer Arithmetic (with quantifiers)
+   - ALL = All theories combined (with quantifiers) - use when uncertain
+
+3. If problem has multiple theories, ensure logic includes ALL of them:
+   - Example: functions + integers → UFLIA or QF_UFLIA (not just LIA)
+   - When uncertain about theories, use ALL logic
+
 For temporal reasoning problems (events and timing constraints):
 - Use logic: (set-logic QF_IDL) for Quantifier-Free Integer Difference Logic
 - Declare integer variables for event times
@@ -65,18 +86,8 @@ Include (check-sat) and optionally (get-model) at the end.
 Return ONLY the SMT-LIB code, no explanations or markdown formatting."""
 
     try:
-        result = subprocess.run(
-            ["claude", "--print"],
-            input=prompt,
-            capture_output=True,
-            text=True,
-            timeout=180
-        )
-
-        if result.returncode != 0:
-            raise Exception(f"Claude CLI failed: {result.stderr}")
-
-        response = result.stdout.strip()
+        client = ClaudeClient()
+        response = client.invoke(prompt, timeout=TIMEOUT_AI_CONVERSION)
 
         # Extract SMT-LIB code
         if "```" in response:
@@ -95,10 +106,8 @@ Return ONLY the SMT-LIB code, no explanations or markdown formatting."""
 
         return response[start_idx:end_idx+1]
 
-    except subprocess.TimeoutExpired:
-        raise Exception("Claude CLI timed out after 3 minutes")
-    except FileNotFoundError:
-        raise Exception("Claude CLI not found. Please install it from https://claude.com/claude-code")
+    except ClaudeTimeoutError:
+        raise Exception(f"Claude API timed out after {TIMEOUT_AI_CONVERSION} seconds")
     except Exception as e:
         raise Exception(f"Failed to convert to SMT-LIB: {str(e)}")
 
@@ -118,7 +127,7 @@ def run_cvc5_standalone(smtlib_code: str) -> tuple[str, str, bool]:
 
     try:
         result = subprocess.run(
-            [str(cvc5_path), temp_file],
+            [str(cvc5_path), "--produce-models", temp_file],
             capture_output=True,
             text=True,
             timeout=120
@@ -141,28 +150,35 @@ def fix_smtlib_with_error_standalone(error_message: str) -> str:
 ERROR MESSAGE FROM cvc5:
 {error_message}
 
-Please fix the SMT-LIB code to resolve this error. Common fixes:
-- If error mentions quantifiers in QF_ logic: change logic from QF_* to non-QF version (e.g., QF_UFLIA -> UFLIA, or use different approach without quantifiers)
-- If error mentions theory mismatch: use appropriate logic that includes all needed theories
-- If error mentions undefined function: add proper function declarations
-- If error mentions syntax: fix the S-expression syntax
-- If logic is too restrictive: use a more general logic (e.g., ALL for combined theories)
+Please fix the SMT-LIB code to resolve this error.
+
+LOGIC SELECTION RULES (critical to avoid errors):
+
+1. QUANTIFIER ERRORS - "doesn't include THEORY_QUANTIFIERS":
+   - NEVER use quantifiers (forall/exists) with QF_* logics
+   - Fix: Change logic from QF_* to non-QF version:
+     * QF_UFLIA → UFLIA (keeps functions + integers, adds quantifiers)
+     * QF_LIA → LIA (keeps integers, adds quantifiers)
+     * QF_IDL → IDL (keeps difference logic, adds quantifiers)
+   - Or use ALL logic for maximum compatibility
+
+2. THEORY MISMATCH ERRORS - "doesn't include THEORY_*":
+   - Logic missing required theory (e.g., using functions but logic doesn't include UF)
+   - Fix: Use logic that includes all needed theories:
+     * Need functions + integers → QF_UFLIA or UFLIA
+     * Need arrays + integers → QF_AUFLIA or AUFLIA
+     * Uncertain → use ALL logic
+
+3. OTHER COMMON FIXES:
+   - Undefined function: add proper (declare-fun ...) declarations
+   - Syntax errors: fix S-expression syntax
+   - Too restrictive logic: upgrade to more general logic or ALL
 
 Return ONLY the corrected SMT-LIB v2.7 code, no explanations."""
 
     try:
-        result = subprocess.run(
-            ["claude", "-c", "--print"],
-            input=prompt,
-            capture_output=True,
-            text=True,
-            timeout=120
-        )
-
-        if result.returncode != 0:
-            raise Exception(f"Claude CLI failed: {result.stderr}")
-
-        response = result.stdout.strip()
+        client = ClaudeClient()
+        response = client.invoke(prompt, timeout=TIMEOUT_AI_ERROR_FIXING)
 
         # Extract SMT-LIB code
         if "```" in response:
@@ -181,6 +197,8 @@ Return ONLY the corrected SMT-LIB v2.7 code, no explanations."""
 
         return response[start_idx:end_idx+1]
 
+    except ClaudeTimeoutError:
+        raise Exception(f"Claude API timed out after {TIMEOUT_AI_ERROR_FIXING} seconds")
     except Exception as e:
         raise Exception(f"Failed to fix SMT-LIB code: {str(e)}")
 

@@ -1,0 +1,3 @@
+Based on the company policy document, can Marcus Webb (E-4782) perform WRITE operations on the Production Database at 11:47 PM EST on March 14, 2025 during the P1 production outage?
+
+The additional necessary data is in /Users/alexanderfedin/Projects/hapyy/cofounder/hupyy-temporal/data/free-form/adhoc/testfile.txt

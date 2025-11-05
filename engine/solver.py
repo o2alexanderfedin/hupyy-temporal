@@ -1,31 +1,19 @@
 import os
 from pathlib import Path
-import subprocess
 import tempfile
 
 from .encode import encode_to_smt
 from .schemas import Problem, Answer
+from solvers.cvc5_runner import CVC5Runner, CVC5Result
 
 # Locate cvc5 binary inside your repo
 ROOT = Path(__file__).resolve().parent.parent
 CVC5_PATH = ROOT / "bin" / "cvc5"
 
-def run_cvc5(smt_file: str):
+def run_cvc5(smt_file: str) -> CVC5Result:
     """Low-level wrapper to run cvc5 on a given SMT2 file."""
-    # Make sure macOS can find the shared libs if you're using the shared build
-    env = os.environ.copy()
-    lib_dir = ROOT / "lib"
-    if lib_dir.exists():
-        env["DYLD_LIBRARY_PATH"] = f"{str(lib_dir)}:{env.get('DYLD_LIBRARY_PATH','')}"
-    # Single subprocess call: includes --produce-models and env
-    result = subprocess.run(
-        [str(CVC5_PATH), "--produce-models", smt_file],
-        capture_output=True,
-        text=True,
-        timeout=15,
-        env=env,
-    )
-    return result.stdout, result.stderr
+    runner = CVC5Runner()
+    return runner.run_file(Path(smt_file))
 
 def solve(problem: Problem) -> Answer:
     """Main entry point: encode problem, run solver, parse result."""
@@ -36,15 +24,15 @@ def solve(problem: Problem) -> Answer:
         fname = f.name
 
     try:
-        out, err = run_cvc5(fname)
-        out_l = (out or "").strip().lower()
+        result = run_cvc5(fname)
+        out_l = (result.stdout or "").strip().lower()
         if "unsat" in out_l:
             return Answer(answer="True", proof=smt_text)
         elif "sat" in out_l:
-            return Answer(answer="False", proof=smt_text, witness={"raw": out})
+            return Answer(answer="False", proof=smt_text, witness={"raw": result.stdout})
         else:
             # If cvc5 prints something unexpected, report it but stay safe
-            msg = (out or "").strip() or (err or "").strip() or "cvc5 returned no status"
+            msg = (result.stdout or "").strip() or (result.stderr or "").strip() or "cvc5 returned no status"
             return Answer(answer="Unknown", proof=f"{smt_text}\n; cvc5:\n{msg}")
     except Exception as e:
         return Answer(answer="Unknown", proof=f"solver error: {e}")

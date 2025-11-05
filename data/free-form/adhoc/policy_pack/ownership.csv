@@ -1,0 +1,5 @@
+entity,owner,percent
+AcmeLLC,Sarah Chen,100
+AcmeLLC2,AcmeLLC,60
+AcmeLLC3,AcmeLLC2,40
+ClientA,AcmeLLC3,51

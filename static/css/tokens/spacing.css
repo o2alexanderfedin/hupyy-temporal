@@ -1,0 +1,46 @@
+/* ============================================
+   SPACING & BORDER RADIUS TOKENS
+   Extracted from docs/ui-ux/ui-ux-spec.md
+   ============================================ */
+
+:root {
+    /* Border Radius - From Spec */
+    --radius-input: 40px;          /* Spec line 17: Input fields */
+    --radius-button: 10px;         /* Spec line 24: Buttons */
+    --radius-card: 16px;           /* For result cards (from screen_3.png) */
+    --radius-small: 6px;           /* Small elements */
+    --radius-medium: 12px;         /* Medium elements */
+
+    /* Spacing Scale */
+    --space-xs: 4px;
+    --space-sm: 8px;
+    --space-md: 16px;
+    --space-lg: 24px;
+    --space-xl: 32px;
+    --space-2xl: 48px;
+    --space-3xl: 64px;
+    --space-4xl: 80px;
+
+    /* Container Widths */
+    --container-max: 1200px;       /* Spec line 9: Max width for centered composition */
+    --content-max: 800px;          /* For readable content */
+    --card-max: 600px;             /* For result cards */
+
+    /* Padding */
+    --padding-page-sm: 24px;       /* Mobile */
+    --padding-page-md: 48px;       /* Tablet */
+    --padding-page-lg: 64px;       /* Desktop */
+
+    /* Button Padding */
+    --padding-button-sm: 8px 16px;
+    --padding-button-md: 12px 32px;
+    --padding-button-lg: 16px 48px;
+
+    /* Input Padding */
+    --padding-input-sm: 12px 20px;
+    --padding-input-md: 16px 24px;
+    --padding-input-lg: 20px 28px;
+
+    /* Card Padding */
+    --padding-card: 40px;
+}

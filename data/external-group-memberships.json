@@ -1,0 +1,8 @@
+{
+  "user_group_memberships": {
+    "alice": ["engineers", "data-team"],
+    "bob": ["contractors"],
+    "charlie": ["frontend-team", "engineers"]
+  },
+  "description": "This file contains critical group membership information required to solve RBAC queries. Without loading this file, access control decisions cannot be made accurately."
+}

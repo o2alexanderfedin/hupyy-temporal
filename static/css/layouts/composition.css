@@ -1,0 +1,362 @@
+/* ============================================
+   PAGE LAYOUT & COMPOSITION
+   TASK-008 Implementation
+   Based on docs/ui-ux/ui-ux-spec.md line 9
+   "centered composition, breathing space, balanced whitespace"
+   ============================================ */
+
+/* ============================================
+   MAIN CONTAINER
+   Spec line 9: "centered composition, breathing space"
+   ============================================ */
+
+.main .block-container {
+    /* Centered composition */
+    max-width: 1200px !important;
+    margin: 0 auto !important;
+    padding: 48px 24px !important;
+
+    /* Breathing space */
+    min-height: 100vh !important;
+
+    /* Ensure content is above background */
+    position: relative !important;
+    z-index: 1 !important;
+}
+
+/* Responsive padding - more breathing space on larger screens */
+@media (min-width: 768px) {
+    .main .block-container {
+        padding: 64px 48px !important;
+    }
+}
+
+@media (min-width: 1024px) {
+    .main .block-container {
+        padding: 80px 64px !important;
+    }
+}
+
+/* ============================================
+   SECTION SPACING (Breathing Space)
+   Spec line 9: "balanced whitespace"
+   ============================================ */
+
+/* Major sections */
+.hupyy-section {
+    margin-bottom: 48px !important;
+}
+
+.hupyy-section:last-child {
+    margin-bottom: 0 !important;
+}
+
+/* Subsections */
+.hupyy-subsection {
+    margin-bottom: 32px !important;
+}
+
+/* Content blocks */
+.hupyy-content-block {
+    margin-bottom: 24px !important;
+}
+
+/* ============================================
+   HEADER AREA (Centered)
+   ============================================ */
+
+.hupyy-page-header {
+    text-align: center !important;
+    margin-bottom: 48px !important;
+}
+
+.hupyy-page-title {
+    /* Spec line 15: HUPYY (bold black, center top, 2.5rem) */
+    font-size: 2.5rem !important;
+    font-weight: var(--font-weight-black) !important;
+    color: var(--text-primary) !important;
+    margin-bottom: 16px !important;
+}
+
+.hupyy-page-subtitle {
+    /* Spec line 16: subheader */
+    font-size: 1.25rem !important;
+    font-weight: var(--font-weight-medium) !important;
+    color: var(--text-secondary) !important;
+    max-width: 600px !important;
+    margin: 0 auto !important;
+}
+
+/* ============================================
+   MAIN CONTENT AREA
+   ============================================ */
+
+.hupyy-main-content {
+    /* Centered content with max-width for readability */
+    max-width: 800px !important;
+    margin: 0 auto !important;
+}
+
+/* Wide content (for cards, results) */
+.hupyy-main-content-wide {
+    max-width: 1000px !important;
+    margin: 0 auto !important;
+}
+
+/* Full width (for tables, benchmarks) */
+.hupyy-main-content-full {
+    max-width: 100% !important;
+}
+
+/* ============================================
+   INPUT AREA (Centered)
+   ============================================ */
+
+.hupyy-input-area {
+    max-width: 800px !important;
+    margin: 0 auto 32px !important;
+}
+
+/* Form groups with balanced spacing */
+.hupyy-form-group {
+    margin-bottom: 24px !important;
+}
+
+.hupyy-form-group:last-child {
+    margin-bottom: 0 !important;
+}
+
+/* ============================================
+   BUTTON AREAS (Centered)
+   ============================================ */
+
+.hupyy-button-group {
+    display: flex !important;
+    justify-content: center !important;
+    gap: 16px !important;
+    flex-wrap: wrap !important;
+    margin-top: 32px !important;
+}
+
+.hupyy-button-group-stacked {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 12px !important;
+    margin-top: 32px !important;
+}
+
+/* ============================================
+   OPTIONS/CONTROLS AREA
+   ============================================ */
+
+.hupyy-options-area {
+    max-width: 800px !important;
+    margin: 0 auto 32px !important;
+    display: flex !important;
+    gap: 24px !important;
+    flex-wrap: wrap !important;
+    justify-content: center !important;
+}
+
+/* Override Streamlit columns for centered layout */
+.stColumns {
+    max-width: 800px !important;
+    margin: 0 auto !important;
+    gap: 24px !important;
+}
+
+/* ============================================
+   RESULTS AREA (Centered Cards)
+   ============================================ */
+
+.hupyy-results-area {
+    margin-top: 48px !important;
+}
+
+/* Results are already centered via result card styles */
+
+/* ============================================
+   SIDEBAR (if used)
+   ============================================ */
+
+.css-1d391kg,
+[data-testid="stSidebar"] {
+    padding: 32px 24px !important;
+}
+
+.css-1d391kg .block-container,
+[data-testid="stSidebar"] .block-container {
+    padding: 0 !important;
+}
+
+/* ============================================
+   GRID LAYOUTS (for benchmark, etc.)
+   ============================================ */
+
+.hupyy-grid {
+    display: grid !important;
+    gap: 24px !important;
+    margin-bottom: 32px !important;
+}
+
+.hupyy-grid-2 {
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)) !important;
+}
+
+.hupyy-grid-3 {
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)) !important;
+}
+
+/* ============================================
+   BALANCED WHITESPACE
+   Streamlit element spacing overrides
+   ============================================ */
+
+.stMarkdown {
+    margin-bottom: 16px !important;
+}
+
+.stButton {
+    margin-top: 16px !important;
+}
+
+.stTextArea,
+.stTextInput,
+.stSelectbox,
+.stCheckbox {
+    margin-bottom: 16px !important;
+}
+
+/* Expanders */
+.streamlit-expanderHeader {
+    margin-top: 16px !important;
+}
+
+/* JSON viewer */
+.stJson {
+    margin-bottom: 16px !important;
+}
+
+/* Code blocks */
+.stCode,
+.stCodeBlock {
+    margin-bottom: 16px !important;
+}
+
+/* ============================================
+   STREAMLIT SPECIFIC OVERRIDES
+   Ensure centered composition works with Streamlit
+   ============================================ */
+
+/* Main app view container */
+[data-testid="stAppViewContainer"] {
+    background: linear-gradient(
+        135deg,
+        var(--bg-gradient-start) 0%,
+        var(--bg-gradient-end) 100%
+    ) !important;
+}
+
+/* Streamlit columns - centered within main container */
+[data-testid="column"] {
+    padding: 0 12px !important;
+}
+
+/* Streamlit vertical block - maintain spacing */
+[data-testid="stVerticalBlock"] {
+    gap: 16px !important;
+}
+
+/* ============================================
+   UTILITY CLASSES
+   ============================================ */
+
+/* Centering utilities */
+.center-text {
+    text-align: center !important;
+}
+
+.center-content {
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+}
+
+/* Spacing utilities - margin bottom */
+.mb-sm { margin-bottom: 16px !important; }
+.mb-md { margin-bottom: 24px !important; }
+.mb-lg { margin-bottom: 32px !important; }
+.mb-xl { margin-bottom: 48px !important; }
+
+/* Spacing utilities - margin top */
+.mt-sm { margin-top: 16px !important; }
+.mt-md { margin-top: 24px !important; }
+.mt-lg { margin-top: 32px !important; }
+.mt-xl { margin-top: 48px !important; }
+
+/* Padding utilities */
+.p-sm { padding: 16px !important; }
+.p-md { padding: 24px !important; }
+.p-lg { padding: 32px !important; }
+.p-xl { padding: 48px !important; }
+
+/* Max-width utilities - all centered */
+.max-w-sm { max-width: 600px !important; margin-left: auto !important; margin-right: auto !important; }
+.max-w-md { max-width: 800px !important; margin-left: auto !important; margin-right: auto !important; }
+.max-w-lg { max-width: 1000px !important; margin-left: auto !important; margin-right: auto !important; }
+.max-w-xl { max-width: 1200px !important; margin-left: auto !important; margin-right: auto !important; }
+
+/* ============================================
+   RESPONSIVE ADJUSTMENTS
+   ============================================ */
+
+/* Mobile - reduce padding for smaller screens */
+@media (max-width: 767px) {
+    .main .block-container {
+        padding: 32px 16px !important;
+    }
+
+    .hupyy-page-header {
+        margin-bottom: 32px !important;
+    }
+
+    .hupyy-section {
+        margin-bottom: 32px !important;
+    }
+
+    .hupyy-button-group {
+        flex-direction: column !important;
+        align-items: stretch !important;
+    }
+}
+
+/* Tablet - moderate spacing */
+@media (min-width: 768px) and (max-width: 1023px) {
+    .hupyy-section {
+        margin-bottom: 40px !important;
+    }
+}
+
+/* Desktop - full breathing space */
+@media (min-width: 1024px) {
+    .hupyy-section {
+        margin-bottom: 48px !important;
+    }
+}
+
+/* ============================================
+   PRINT STYLES
+   Maintain centered composition in print
+   ============================================ */
+
+@media print {
+    .main .block-container {
+        max-width: 100% !important;
+        padding: 0 !important;
+    }
+
+    [data-testid="stSidebar"] {
+        display: none !important;
+    }
+}

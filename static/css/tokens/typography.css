@@ -1,0 +1,235 @@
+/* ============================================
+   TYPOGRAPHY TOKENS
+   Based on docs/ui-ux/ui-ux-spec.md line 8
+   "Typography: SF Pro / Inter / Helvetica Neue"
+   ============================================ */
+
+/* Import Inter font from Google Fonts as fallback */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap');
+
+:root {
+    /* Font Families - Spec line 8 */
+    /* SF Pro Display is macOS system font, will be used if available */
+    --font-primary: 'SF Pro Display', -apple-system, BlinkMacSystemFont,
+                    'Inter', 'Helvetica Neue', sans-serif;
+
+    /* Monospace for code blocks */
+    --font-mono: 'SF Mono', 'Monaco', 'Menlo', 'Consolas', monospace;
+
+    /* Font Sizes */
+    --font-size-header: 2.5rem;      /* 40px - Spec line 15: HUPYY title */
+    --font-size-h1: 2.5rem;          /* 40px */
+    --font-size-h2: 2rem;            /* 32px */
+    --font-size-h3: 1.5rem;          /* 24px */
+    --font-size-subheader: 1.25rem;  /* 20px - Spec line 16 */
+    --font-size-body: 1rem;          /* 16px */
+    --font-size-body-sm: 0.9375rem;  /* 15px */
+    --font-size-small: 0.875rem;     /* 14px */
+    --font-size-verdict: 5rem;       /* 80px - Spec line 41: Large verdict text */
+
+    /* Font Weights */
+    --font-weight-normal: 400;
+    --font-weight-medium: 500;
+    --font-weight-semibold: 600;
+    --font-weight-bold: 700;
+    --font-weight-black: 900;        /* Spec line 15, 42: Bold black */
+
+    /* Line Heights */
+    --line-height-tight: 1.1;
+    --line-height-normal: 1.5;
+    --line-height-relaxed: 1.6;
+    --line-height-loose: 1.8;
+
+    /* Letter Spacing */
+    --letter-spacing-tight: -0.03em;  /* For large display text */
+    --letter-spacing-normal: 0;
+    --letter-spacing-wide: 0.025em;
+}
+
+/* Global Typography Base */
+body {
+    font-family: var(--font-primary);
+    font-size: var(--font-size-body);
+    line-height: var(--line-height-normal);
+    color: var(--text-primary);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* Heading Styles */
+h1 {
+    font-size: var(--font-size-h1);
+    font-weight: var(--font-weight-black);
+    line-height: var(--line-height-tight);
+    color: var(--text-primary);
+}
+
+h2 {
+    font-size: var(--font-size-h2);
+    font-weight: var(--font-weight-bold);
+    line-height: var(--line-height-tight);
+    color: var(--text-primary);
+}
+
+h3 {
+    font-size: var(--font-size-h3);
+    font-weight: var(--font-weight-semibold);
+    line-height: var(--line-height-normal);
+    color: var(--text-primary);
+}
+
+/* Body Text */
+p {
+    font-size: var(--font-size-body);
+    line-height: var(--line-height-relaxed);
+    color: var(--text-primary);
+}
+
+/* Code Blocks */
+code, pre {
+    font-family: var(--font-mono);
+    font-size: var(--font-size-small);
+}
+
+/* ============================================
+   STREAMLIT COMPONENT OVERRIDES (TASK-002)
+   Spec line 15: "Header: HUPYY (bold black, center top, 2.5rem)"
+   Spec line 16: "Subheader: 'What are we proving today?' (#555 gray, medium weight)"
+   ============================================ */
+
+/* Main Streamlit app container */
+.stApp {
+    font-family: var(--font-primary) !important;
+    color: var(--text-primary) !important;
+}
+
+/* Streamlit title component - Spec line 15 */
+.stTitle,
+h1.stTitle {
+    font-family: var(--font-primary) !important;
+    font-size: var(--font-size-h1) !important;       /* 2.5rem */
+    font-weight: var(--font-weight-black) !important;  /* 900 */
+    color: var(--text-primary) !important;           /* #111111 */
+    line-height: var(--line-height-tight) !important;
+    letter-spacing: var(--letter-spacing-tight) !important;
+}
+
+/* Streamlit markdown text */
+.stMarkdown {
+    font-family: var(--font-primary) !important;
+    color: var(--text-primary) !important;
+}
+
+.stMarkdown p {
+    font-size: var(--font-size-body) !important;
+    line-height: var(--line-height-relaxed) !important;
+    color: var(--text-primary) !important;
+}
+
+.stMarkdown h1 {
+    font-size: var(--font-size-h1) !important;
+    font-weight: var(--font-weight-black) !important;
+    color: var(--text-primary) !important;
+}
+
+.stMarkdown h2 {
+    font-size: var(--font-size-h2) !important;
+    font-weight: var(--font-weight-bold) !important;
+    color: var(--text-primary) !important;
+}
+
+.stMarkdown h3 {
+    font-size: var(--font-size-h3) !important;
+    font-weight: var(--font-weight-semibold) !important;
+    color: var(--text-primary) !important;
+}
+
+/* Streamlit subheader - Spec line 16 */
+.stMarkdown h2.subheader,
+.subheader {
+    font-size: var(--font-size-subheader) !important;  /* 1.25rem */
+    font-weight: var(--font-weight-medium) !important;  /* 500 */
+    color: var(--text-secondary) !important;           /* #555555 */
+}
+
+/* Streamlit text component */
+.stText {
+    font-family: var(--font-primary) !important;
+    color: var(--text-secondary) !important;
+}
+
+/* Streamlit code blocks */
+.stCode,
+.stCodeBlock {
+    font-family: var(--font-mono) !important;
+}
+
+.stCode code,
+.stCodeBlock code {
+    font-family: var(--font-mono) !important;
+    font-size: 0.9em !important;
+}
+
+/* Streamlit expander (for proof display) */
+.stExpander {
+    font-family: var(--font-primary) !important;
+}
+
+/* Streamlit success/error/warning messages */
+.stSuccess,
+.stError,
+.stWarning,
+.stInfo {
+    font-family: var(--font-primary) !important;
+}
+
+/* Streamlit metric component */
+.stMetric {
+    font-family: var(--font-primary) !important;
+}
+
+.stMetric label {
+    font-size: var(--font-size-small) !important;
+    color: var(--text-secondary) !important;
+}
+
+.stMetric [data-testid="stMetricValue"] {
+    font-size: var(--font-size-verdict) !important;    /* Large numbers */
+    font-weight: var(--font-weight-black) !important;
+}
+
+/* ============================================
+   UTILITY CLASSES
+   ============================================ */
+
+.text-primary {
+    color: var(--text-primary) !important;
+}
+
+.text-secondary {
+    color: var(--text-secondary) !important;
+}
+
+.text-tertiary {
+    color: var(--text-tertiary) !important;
+}
+
+.font-weight-normal {
+    font-weight: var(--font-weight-normal) !important;
+}
+
+.font-weight-medium {
+    font-weight: var(--font-weight-medium) !important;
+}
+
+.font-weight-semibold {
+    font-weight: var(--font-weight-semibold) !important;
+}
+
+.font-weight-bold {
+    font-weight: var(--font-weight-bold) !important;
+}
+
+.font-weight-black {
+    font-weight: var(--font-weight-black) !important;
+}

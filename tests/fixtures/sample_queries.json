@@ -1,0 +1,68 @@
+{
+  "sat_simple": {
+    "query": "x is greater than 5 and less than 10",
+    "expected_status": "sat",
+    "description": "Simple satisfiable query with integer bounds"
+  },
+  "unsat_simple": {
+    "query": "x is greater than 10 and x is less than 5",
+    "expected_status": "unsat",
+    "description": "Simple unsatisfiable query with contradictory bounds"
+  },
+  "smtlib_direct_sat": {
+    "code": "(set-logic QF_LIA)\n(declare-const x Int)\n(assert (> x 5))\n(assert (< x 10))\n(check-sat)\n(get-model)",
+    "expected_status": "sat",
+    "description": "Direct SMT-LIB code for satisfiable query"
+  },
+  "smtlib_direct_unsat": {
+    "code": "(set-logic QF_LIA)\n(declare-const x Int)\n(assert (> x 10))\n(assert (< x 5))\n(check-sat)",
+    "expected_status": "unsat",
+    "description": "Direct SMT-LIB code for unsatisfiable query"
+  },
+  "complex_multi_variable": {
+    "query": "There are three variables x, y, and z representing ages. x is older than y. y is older than z. All ages are positive integers less than 100. Is it possible that x is 50?",
+    "expected_status": "sat",
+    "description": "Complex query with multiple variables and constraints"
+  },
+  "needs_correction": {
+    "query": "x equals five plus y and y equals three",
+    "expected_status": "sat",
+    "description": "Query that may need correction by auto-fix"
+  },
+  "temporal_constraint": {
+    "query": "Event A happens before Event B, and Event B happens before Event C. Event A happens at time 0. Can Event C happen at time 10?",
+    "expected_status": "sat",
+    "description": "Temporal reasoning query"
+  },
+  "invalid_input": {
+    "query": "asdfasdf123!@#$%^&*()",
+    "expected_status": "error",
+    "description": "Invalid/gibberish input for error handling tests"
+  },
+  "empty_input": {
+    "query": "",
+    "expected_status": "error",
+    "description": "Empty input for validation tests"
+  },
+  "complex_multi_phase": {
+    "query": "There are three variables x, y, and z representing ages. x is older than y. y is older than z. All ages are positive integers less than 100. Is it possible that x is 50?",
+    "expected_phases": 3,
+    "expected_status": "sat",
+    "description": "Complex query requiring multi-phase processing"
+  },
+  "auto_fix_test": {
+    "query": "There are three variables x y and z. x equals y plus z.",
+    "expected_status": "sat",
+    "description": "Query that may need auto-fix correction"
+  },
+  "long_running": {
+    "query": "There are five variables a, b, c, d, and e. Each variable is an integer between 1 and 100. The sum of all variables equals 250. a is greater than b. b is greater than c. c is greater than d. d is greater than e. All variables are different. Is there a solution where a equals 90?",
+    "expected_status": "sat",
+    "description": "Complex query that takes longer to process"
+  },
+  "smtlib_with_error": {
+    "code": "(set-logic QF_LIA)\n(declare-const x Int)\n(assert (> x 5))\n(assert (< x 10))\n(assert (= undefined_var 5))\n(check-sat)\n(get-model)",
+    "expected_status": "error",
+    "description": "SMT-LIB code with intentional error"
+  }
+}

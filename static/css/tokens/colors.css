@@ -1,0 +1,56 @@
+/* ============================================
+   COLOR TOKENS
+   Extracted from docs/ui-ux/ui-ux-spec.md lines 57-66
+   ============================================ */
+
+:root {
+    /* Background Gradient - Spec lines 58-59 */
+    --bg-gradient-start: #F9FAFB;  /* Very light gray */
+    --bg-gradient-end: #EAECEE;    /* Light silver */
+
+    /* Text Colors - Spec lines 60-61 */
+    --text-primary: #111111;       /* Near black */
+    --text-secondary: #555555;     /* Medium gray */
+    --text-tertiary: #888888;      /* Light gray */
+
+    /* Border Colors - Spec line 62 */
+    --border-input: #C8D4E2;       /* Light blue-gray for inputs */
+    --border-light: #D2D8DF;       /* Spec line 19 */
+    --border-medium: #B0B8C0;      /* Medium borders */
+
+    /* Primary Blue (Salesforce Lightning) - Spec lines 63-64 */
+    --primary-blue-start: #0176D3; /* Salesforce blue start */
+    --primary-blue-end: #0192FF;   /* Salesforce blue end */
+    --primary-blue-hover: #0158A3; /* Darker for active state */
+
+    /* Status Colors - Spec lines 43-45 */
+    --status-true: #128C7E;        /* WhatsApp green (darker) */
+    --status-false: #C62828;       /* Deep red */
+    --status-unknown: #FFC300;     /* Warm amber yellow */
+    --status-processing: #2E95FF;  /* Spec line 34: pulsing soft blue */
+
+    /* Shadows - Spec line 66 */
+    --shadow-soft: rgba(0, 0, 0, 0.1);
+    --shadow-medium: rgba(0, 0, 0, 0.15);
+    --shadow-strong: rgba(0, 0, 0, 0.2);
+
+    /* Result Card Shadow - Spec line 39 */
+    --shadow-card: rgba(0, 0, 0, 0.08);  /* #00000015 ≈ 0.08 */
+
+    /* Alert/Info Colors */
+    --info-blue: #E3F2FD;
+    --info-blue-text: #0D47A1;
+    --success-green: #E8F5E9;
+    --success-green-text: #1B5E20;
+    --warning-yellow: #FFF8E1;
+    --warning-yellow-text: #F57F17;
+    --error-red: #FFEBEE;
+    --error-red-text: #B71C1C;
+
+    /* Glass Effect */
+    --glass-white: rgba(255, 255, 255, 0.8);
+    --glass-white-dark: rgba(255, 255, 255, 0.95);
+
+    /* Vignette - Spec line 10 */
+    --vignette-overlay: rgba(0, 0, 0, 0.03);
+}

@@ -1,0 +1,5 @@
+{
+  "model": "opus",
+  "use_claude_conversion": true,
+  "auto_fix_errors": true
+}

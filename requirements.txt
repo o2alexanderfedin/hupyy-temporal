@@ -1,3 +1,10 @@
 pydantic>=2.7,<3
 streamlit>=1.37,<2
 pytest>=8.0
+fpdf2>=2.7.9
+
+# Playwright E2E Testing
+playwright>=1.40.0
+pytest-playwright>=0.4.0
+PyPDF2>=3.0.0
+pytest-html>=4.0.0
