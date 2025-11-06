@@ -48,6 +48,573 @@ graph TB
 
 -----
 
+### 1.3 Domain Management Layer
+
+> **Cross-Reference:** See `docs/DOMAIN_INDEPENDENCE_ANALYSIS.md` (Section 2: New Components Required, lines 552-1250) for complete domain management architecture.
+
+**What is a Domain?**
+
+A **domain** is an isolated namespace for rules, entities, and queries within the system. Each domain defines:
+- **Entity Types**: What kinds of things exist (materials, medications, transactions)
+- **Properties**: What attributes those entities have (temperature, dosage, amount)
+- **Naming Conventions**: How variables are named in SMT-LIB
+- **Validation Rules**: Domain-specific constraints
+- **Optional Plugins**: Custom behavior for validation, explanation generation, and suggestions
+
+**Why Domain Independence?**
+
+The system was originally hardcoded for mechanical engineering (materials, parts, thermal properties). Domain independence transforms it into a **multi-vertical platform** that can serve:
+- **Healthcare**: Drug interactions, treatment protocols
+- **Finance**: Regulatory compliance, risk assessment
+- **Temporal Logic**: Workflow validation, process verification
+- **Any domain with constraint-based rules**
+
+**Architectural Impact:**
+
+Every component is **domain-aware**:
+- **Ingestion**: Rules are parsed using domain-specific templates
+- **Storage**: Database and vector DB are partitioned by domain_id
+- **Queries**: All operations are scoped to a single domain
+- **API**: Endpoints require domain_id for multi-tenancy
+
+#### 1.3.1 Domain Lifecycle
+
+Domains follow a managed lifecycle from registration to deletion:
+
+```mermaid
+stateDiagram-v2
+    [*] --> Draft: Create Domain
+    Draft --> Validating: Submit for Validation
+    Validating --> Invalid: Validation Failed
+    Invalid --> Draft: Fix Errors
+    Validating --> Active: Validation Passed
+    Active --> Updating: Modify Definition
+    Updating --> Active: Create New Version
+    Active --> Deprecated: Mark Deprecated
+    Deprecated --> Archived: Archive
+    Archived --> [*]: Delete (with safeguards)
+
+    note right of Active
+        Rules can be ingested
+        Queries can be executed
+    end note
+
+    note right of Deprecated
+        Read-only access
+        No new rules
+    end note
+```
+
+**Domain Operations:**
+
+1. **Create**: Register new domain with complete JSON schema
+2. **Validate**: Check naming conventions, entity/property definitions, plugin availability
+3. **Activate**: Enable for rule ingestion and queries
+4. **Version**: Update creates new version (v1.0.0 → v1.1.0)
+5. **Deprecate**: Mark for sunset (existing rules continue to work)
+6. **Archive**: Move to cold storage (read-only)
+7. **Delete**: Remove domain and all rules (requires force flag if rules exist)
+
+#### 1.3.2 Domain Definition Schema
+
+Domains are defined using a comprehensive JSON schema:
+
+```json
+{
+  "domain_id": "healthcare_drug_interactions_v1",
+  "name": "Healthcare - Drug Interaction Safety",
+  "version": "1.0.0",
+  "description": "Constraint-based drug interaction checking for clinical decision support",
+
+  "entity_types": {
+    "medications": {
+      "canonical_var": "drug",
+      "aliases": ["medicine", "pharmaceutical", "medication", "med"],
+      "smt_type": "Enum",
+      "description": "Pharmaceutical drugs and medications",
+      "instances": {
+        "warfarin": {
+          "aliases": ["coumadin"],
+          "properties_required": ["dosage_mg", "half_life_hours"],
+          "metadata": {
+            "drug_class": "anticoagulant",
+            "fda_approved": true
+          }
+        },
+        "aspirin": {
+          "aliases": ["acetylsalicylic_acid", "asa"],
+          "properties_required": ["dosage_mg"]
+        }
+      }
+    },
+    "patients": {
+      "canonical_var": "patient",
+      "aliases": ["individual", "person"],
+      "smt_type": "String",
+      "description": "Individual patients",
+      "instances": {}
+    }
+  },
+
+  "properties": {
+    "dosage_mg": {
+      "canonical_var": "dosage",
+      "unit": "mg",
+      "smt_type": "Real",
+      "domain": [0, 1000],
+      "description": "Medication dosage in milligrams"
+    },
+    "age_years": {
+      "canonical_var": "age",
+      "unit": "years",
+      "smt_type": "Int",
+      "domain": [0, 120],
+      "description": "Patient age"
+    },
+    "kidney_function_gfr": {
+      "canonical_var": "kidney_gfr",
+      "unit": "mL/min/1.73m²",
+      "smt_type": "Real",
+      "domain": [0, 150],
+      "description": "Glomerular filtration rate (kidney function indicator)"
+    }
+  },
+
+  "relationships": {
+    "contraindicated_with": {
+      "canonical_var": "contraindicated",
+      "smt_type": "Bool",
+      "arity": 2,
+      "description": "Two medications should not be combined"
+    },
+    "safe_with": {
+      "canonical_var": "safe_combination",
+      "smt_type": "Bool",
+      "arity": 2,
+      "description": "Medications can be safely combined"
+    }
+  },
+
+  "naming_conventions": {
+    "entity_property": "{entity}_{property}",
+    "relationship": "{entity1}_{entity2}_{relationship}",
+    "examples": [
+      "warfarin_dosage",
+      "patient_age",
+      "warfarin_aspirin_contraindicated"
+    ]
+  },
+
+  "validation_rules": {
+    "required_properties": ["dosage_mg"],
+    "forbidden_combinations": [
+      ["warfarin", "aspirin"]
+    ]
+  },
+
+  "plugin": {
+    "class_name": "HealthcarePlugin",
+    "module": "plugins.healthcare",
+    "enabled": true,
+    "config": {
+      "use_clinical_guidelines": true,
+      "severity_threshold": "major"
+    }
+  },
+
+  "metadata": {
+    "created_by": "user_123",
+    "created_at": "2025-01-05T10:00:00Z",
+    "tags": ["healthcare", "clinical", "drug-safety"],
+    "documentation_url": "https://docs.example.com/domains/healthcare"
+  }
+}
+```
+
+**Schema Validation:**
+
+All domain definitions are validated against a JSON Schema specification:
+
+```python
+from jsonschema import validate
+
+DOMAIN_SCHEMA = {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "required": ["domain_id", "name", "version", "entity_types", "properties"],
+    "properties": {
+        "domain_id": {
+            "type": "string",
+            "pattern": "^[a-z0-9_]+_v[0-9]+$"
+        },
+        "version": {
+            "type": "string",
+            "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+        },
+        "entity_types": {
+            "type": "object",
+            "minProperties": 1
+        }
+        # ... additional constraints
+    }
+}
+
+def validate_domain(domain_def: dict) -> bool:
+    validate(instance=domain_def, schema=DOMAIN_SCHEMA)
+    return True
+```
+
+#### 1.3.3 Domain Registry Architecture
+
+The Domain Registry is a **singleton** that manages all active domains:
+
+```python
+from typing import Dict, Optional
+from threading import RLock
+
+class DomainRegistry:
+    """
+    Thread-safe singleton registry for domain configurations.
+    Loads domains from database on startup, caches in memory.
+    """
+
+    _instance: Optional['DomainRegistry'] = None
+    _lock: RLock = RLock()
+    _domains: Dict[str, Domain] = {}
+
+    def __new__(cls):
+        if cls._instance is None:
+            with cls._lock:
+                if cls._instance is None:
+                    cls._instance = super().__new__(cls)
+        return cls._instance
+
+    @classmethod
+    def initialize(cls, db_connection):
+        """Load all active domains from database"""
+        instance = cls()
+        with cls._lock:
+            domains = db_connection.query("SELECT * FROM domains WHERE status='active'")
+            for domain_row in domains:
+                domain = Domain.from_json(domain_row['definition'])
+                instance._domains[domain.domain_id] = domain
+
+    @classmethod
+    def get(cls, domain_id: str) -> Domain:
+        """
+        Retrieve domain by ID.
+        Thread-safe, fast O(1) lookup from cache.
+        """
+        instance = cls()
+        with cls._lock:
+            if domain_id not in instance._domains:
+                raise DomainNotFoundError(f"Domain {domain_id} not found")
+            return instance._domains[domain_id]
+
+    @classmethod
+    def list_domains(cls) -> List[DomainSummary]:
+        """List all registered domains"""
+        instance = cls()
+        with cls._lock:
+            return [
+                DomainSummary(
+                    domain_id=d.domain_id,
+                    name=d.name,
+                    version=d.version,
+                    entity_count=len(d.entity_types),
+                    property_count=len(d.properties)
+                )
+                for d in instance._domains.values()
+            ]
+
+    @classmethod
+    def register(cls, domain: Domain) -> None:
+        """Add new domain to registry"""
+        instance = cls()
+        with cls._lock:
+            if domain.domain_id in instance._domains:
+                raise DomainAlreadyExistsError(f"Domain {domain.domain_id} already exists")
+            instance._domains[domain.domain_id] = domain
+
+    @classmethod
+    def reload(cls) -> None:
+        """Reload domains from database (for hot-reload without restart)"""
+        # Implementation: clear cache and re-initialize
+        pass
+```
+
+**Performance Characteristics:**
+- **Startup**: O(n) load time for n domains (typically < 100ms for 100 domains)
+- **Lookup**: O(1) in-memory hash table lookup
+- **Memory**: ~10-50KB per domain definition
+- **Concurrency**: Thread-safe with RLock for multi-threaded environments
+
+#### 1.3.4 Domain Plugin System
+
+Domains can provide custom plugins that extend core functionality:
+
+**Plugin Discovery:**
+
+```python
+class PluginLoader:
+    """Dynamically load domain plugins"""
+
+    @staticmethod
+    def load_plugin(plugin_config: dict) -> DomainPlugin:
+        """
+        Load plugin from module path
+
+        Args:
+            plugin_config: {
+                "class_name": "HealthcarePlugin",
+                "module": "plugins.healthcare",
+                "enabled": true
+            }
+        """
+        if not plugin_config.get('enabled', False):
+            return None
+
+        module_path = plugin_config['module']
+        class_name = plugin_config['class_name']
+
+        # Dynamic import
+        module = __import__(module_path, fromlist=[class_name])
+        plugin_class = getattr(module, class_name)
+
+        # Validate implements DomainPlugin interface
+        if not issubclass(plugin_class, DomainPlugin):
+            raise InvalidPluginError(f"{class_name} does not implement DomainPlugin")
+
+        return plugin_class()
+```
+
+**Plugin Integration Points:**
+
+The system invokes plugins at specific hook points:
+
+1. **Ingestion Pipeline**:
+   - `validate_rule(rule_text) → List[ValidationError]`
+   - `preprocess_rule(rule_text) → str`
+
+2. **Query Pipeline**:
+   - `preprocess_query(query) → Query`
+   - `validate_query(query) → List[ValidationError]`
+   - `generate_explanation(conflict, rules, query) → str`
+   - `generate_suggestions(conflict, rules, query) → List[Suggestion]`
+
+3. **Result Formatting**:
+   - `format_result(result) → dict`
+
+#### 1.3.5 Domain Isolation Guarantees
+
+The system enforces strict isolation between domains at multiple layers:
+
+**1. Database-Level Isolation:**
+
+```sql
+-- Foreign key constraints enforce referential integrity
+ALTER TABLE rules
+ADD CONSTRAINT fk_rules_domain
+    FOREIGN KEY (domain_id)
+    REFERENCES domains(domain_id)
+    ON DELETE CASCADE;
+
+-- Indexes optimize domain-scoped queries
+CREATE INDEX idx_rules_domain ON rules(domain_id);
+CREATE INDEX idx_rule_chunks_domain ON rule_chunks(domain_id);
+CREATE INDEX idx_smt_fragments_domain ON smt_fragments(domain_id);
+
+-- Row-level security (PostgreSQL)
+CREATE POLICY domain_isolation_policy ON rules
+    USING (domain_id = current_setting('app.current_domain_id'));
+```
+
+**2. Vector Database Isolation:**
+
+```python
+# Pinecone example: metadata filtering ensures cross-domain retrieval is impossible
+results = index.query(
+    vector=query_embedding,
+    filter={"domain_id": {"$eq": "healthcare_drug_interactions_v1"}},
+    top_k=20,
+    namespace="domain_healthcare_drug_interactions_v1"  # Namespace-level isolation
+)
+```
+
+**3. API-Level Isolation:**
+
+```python
+# Middleware enforces domain access control
+@app.middleware("http")
+async def domain_access_control(request: Request, call_next):
+    domain_id = request.path_params.get('domain_id')
+    if domain_id:
+        user = get_current_user(request)
+        if not user.has_access(domain_id):
+            raise HTTPException(status_code=403, detail="Domain access denied")
+    return await call_next(request)
+```
+
+**4. Application-Level Isolation:**
+
+All queries, ingestion operations, and retrievals explicitly filter by `domain_id`:
+
+```python
+# Every database query includes domain_id
+rules = db.query(Rule).filter(Rule.domain_id == query.domain_id).all()
+
+# Vector search always filters by domain
+fragments = vector_db.search(query_embedding, filter={"domain_id": domain_id})
+
+# SMT composition only uses domain-specific fragments
+smt_program = composer.compose(query, fragments, domain=domain_registry.get(domain_id))
+```
+
+**Isolation Testing:**
+
+```python
+def test_cross_domain_isolation():
+    """Ensure queries cannot access other domains' data"""
+    # Ingest rule into domain A
+    ingest_rule(domain_id="domain_a", text="Rule A")
+
+    # Query domain B
+    results = query(domain_id="domain_b", query="...")
+
+    # Assert: Results must not include rules from domain A
+    assert not any(r.domain_id == "domain_a" for r in results.fragments)
+```
+
+#### 1.3.6 Multi-Domain Examples
+
+The same architecture serves diverse domains:
+
+**Example 1: Mechanical Engineering**
+```json
+{
+  "domain_id": "mechanical_engineering_v1",
+  "entity_types": ["materials", "parts"],
+  "properties": ["thermal_expansion_coef", "tensile_strength"],
+  "use_case": "Material compatibility at temperature",
+  "example_query": "Can steel bolts be used with aluminum plates at 200°C?"
+}
+```
+
+**Example 2: Healthcare**
+```json
+{
+  "domain_id": "healthcare_drug_interactions_v1",
+  "entity_types": ["medications", "patients"],
+  "properties": ["dosage_mg", "age_years", "kidney_function_gfr"],
+  "use_case": "Drug interaction safety checking",
+  "example_query": "Is warfarin safe with aspirin for a 65-year-old patient?"
+}
+```
+
+**Example 3: Finance**
+```json
+{
+  "domain_id": "finance_compliance_v1",
+  "entity_types": ["transactions", "securities", "institutions"],
+  "properties": ["notional_amount", "capital_ratio", "tier1_capital"],
+  "use_case": "Regulatory compliance verification",
+  "example_query": "Does this transaction comply with Basel III capital requirements?"
+}
+```
+
+**Example 4: Temporal Logic**
+```json
+{
+  "domain_id": "temporal_workflow_v1",
+  "entity_types": ["tasks", "resources", "dependencies"],
+  "properties": ["duration_hours", "precedence", "resource_capacity"],
+  "use_case": "Workflow validation and scheduling",
+  "example_query": "Can Task B start before Task A completes?"
+}
+```
+
+#### 1.3.7 Architecture Diagram
+
+```mermaid
+graph TB
+    subgraph "Domain Management Layer"
+        DomainRegistry[Domain Registry<br/>Singleton]
+        DomainLoader[Domain Loader]
+        PluginManager[Plugin Manager]
+    end
+
+    subgraph "Domains"
+        D1[Mechanical Engineering v1]
+        D2[Healthcare v1]
+        D3[Finance v1]
+        D4[Temporal Logic v1]
+    end
+
+    subgraph "Plugins"
+        P1[MechanicalPlugin]
+        P2[HealthcarePlugin]
+        P3[FinancePlugin]
+    end
+
+    subgraph "Core Pipelines"
+        Ingestion[Ingestion Pipeline]
+        Query[Query Pipeline]
+        Validation[Validation Layer]
+    end
+
+    subgraph "Storage"
+        DB[(PostgreSQL<br/>domain_id FK)]
+        VectorDB[(Vector DB<br/>domain_id metadata)]
+    end
+
+    DomainLoader -->|Loads from DB| DomainRegistry
+    DomainRegistry -.->|Provides Schema| D1
+    DomainRegistry -.->|Provides Schema| D2
+    DomainRegistry -.->|Provides Schema| D3
+    DomainRegistry -.->|Provides Schema| D4
+
+    PluginManager -.->|Loads| P1
+    PluginManager -.->|Loads| P2
+    PluginManager -.->|Loads| P3
+
+    D1 -.->|Uses| P1
+    D2 -.->|Uses| P2
+    D3 -.->|Uses| P3
+
+    Ingestion -->|Gets Domain Config| DomainRegistry
+    Query -->|Gets Domain Config| DomainRegistry
+    Validation -->|Uses Domain Rules| DomainRegistry
+
+    Ingestion -->|Stores with domain_id| DB
+    Ingestion -->|Embeds with domain_id| VectorDB
+    Query -->|Filters by domain_id| DB
+    Query -->|Filters by domain_id| VectorDB
+
+    style DomainRegistry fill:#e1f5ff
+    style DB fill:#ffe1e1
+    style VectorDB fill:#ffe1e1
+```
+
+#### 1.3.8 Single-Domain vs Multi-Domain Architecture
+
+| Aspect | Single-Domain (v1.0) | Multi-Domain (v2.0) |
+|--------|---------------------|---------------------|
+| **Entity Types** | Hardcoded (materials, parts) | Configurable per domain |
+| **Properties** | Hardcoded (thermal_expansion_coef, tensile_strength) | Per-domain schema |
+| **API Endpoints** | Global (`/api/v1/rules/ingest`) | Domain-scoped (`/api/v1/domains/{id}/rules/ingest`) |
+| **Storage** | Single namespace | Isolated namespaces (domain_id FK) |
+| **Validation** | Material-specific logic | Domain plugins |
+| **Query Structure** | Fixed "environment" field | Generic "context" field |
+| **Explanation Generation** | Mechanical engineering terms | Domain-specific terminology via plugins |
+| **Vector Search** | Unfiltered | Filtered by domain_id metadata |
+| **Use Cases** | Mechanical engineering only | Healthcare, finance, temporal logic, etc. |
+| **Scalability** | Single tenant | Multi-tenant, SaaS-ready |
+| **Customization** | Code changes required | Domain definition + optional plugin |
+
+**Migration Path:** Existing mechanical engineering rules automatically migrate to `mechanical_engineering_v1` domain, preserving backward compatibility.
+
+-----
+
 ## 2. Component Specifications
 
 ### 2.1 Rules Database Schema (Domain-Scoped)
