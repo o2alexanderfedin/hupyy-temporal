@@ -35,3 +35,12 @@ eval/test.pid
 
 # Playwright test results
 test-results/
+
+# Application logs
+logs/
+
+# Generated reports
+reports/*.pdf
+
+# Backup files
+*.backup
