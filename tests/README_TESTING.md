@@ -2,6 +2,13 @@
 
 This directory contains a comprehensive testing and reporting suite that compares the **Hupyy Temporal Service** (SMT-LIB + cvc5 solver) against **Claude Direct Prompting** for temporal reasoning problems.
 
+## 📚 Testing Documentation
+
+- **[RUN_TESTS.md](./guides/RUN_TESTS.md)** - Quick start guide for running tests
+- **[PLAYWRIGHT_SELECTORS_GUIDE.md](./guides/PLAYWRIGHT_SELECTORS_GUIDE.md)** - E2E testing with Playwright
+- **[QUICK_START.md](./QUICK_START.md)** - Quick validation guide
+- **[e2e/README.md](./e2e/README.md)** - End-to-end testing documentation
+
 ## Overview
 
 ### What It Tests
