@@ -368,22 +368,36 @@ Fragment storage includes domain_id for proper isolation:
 
 -----
 
-## 3. Ingestion Pipeline
+## 3. Ingestion Pipeline (Domain-Aware)
 
-### 3.1 Pipeline Flow
+> **Cross-Reference:** See `docs/DOMAIN_INDEPENDENCE_ANALYSIS.md` (Section 1.3, 1.5, 1.8, 2.5, 3.2) for domain-aware ingestion requirements.
+
+The ingestion pipeline processes natural language rules into validated SMT-LIB constraints. **All operations are domain-scoped**: the pipeline loads the target domain's configuration and uses domain-specific entity types, properties, validation rules, and prompt templates throughout processing.
+
+**Key Input:** Every ingestion request includes a `domain_id` parameter that determines:
+- Which entity/property registry to use
+- Which prompt templates to render
+- Which validation rules to apply
+- Which namespace to store embeddings in
+
+### 3.1 Pipeline Flow (Domain-Scoped)
 
 ```mermaid
 flowchart TD
-    Start([New Rule Input]) --> A[Store Raw Rule]
-    A --> B[LLM: Text Chunking]
-    
+    Start([New Rule Input<br/>+ domain_id]) --> LoadDomain[Load Domain Config]
+    LoadDomain --> ValidateDomain{Domain<br/>Valid?}
+    ValidateDomain -->|No| DomainError[Domain Not Found Error]
+    ValidateDomain -->|Yes| A[Store Raw Rule<br/>with domain_id]
+
+    A --> B[LLM: Text Chunking<br/>Domain-Specific Templates]
+
     B --> C{Coverage<br/>Valid?}
     C -->|No| D[Log Error]
     D --> Manual[Manual Review Queue]
     C -->|Yes| E[For Each Chunk]
-    
-    E --> F[Load Registry]
-    F --> G[LLM: Convert to SMT]
+
+    E --> F[Load Domain Registry]
+    F --> G[LLM: Convert to SMT<br/>Domain Templates]
     G --> H[Syntax Validation]
     
     H --> I{Syntax<br/>Valid?}
@@ -429,11 +443,18 @@ flowchart TD
     style D fill:#ffe1e1
 ```
 
-### 3.2 Text Chunking Prompt Template
+### 3.2 Text Chunking Prompt Template (Domain-Agnostic)
+
+Prompts are **rendered from templates** using domain-specific context:
 
 ```python
-CHUNKING_PROMPT = """
-You are preprocessing material compatibility rules for constraint solving.
+CHUNKING_PROMPT_TEMPLATE = """
+You are preprocessing {domain_description} rules for constraint solving.
+
+Domain Context:
+- Entity Types: {entity_types_list}
+- Key Properties: {key_properties_list}
+- Typical Relationships: {relationships_list}
 
 Task: Break the input text into independent, self-contained constraint statements.
 
@@ -443,6 +464,10 @@ Requirements:
 3. Keep logical operators (OR, IF-THEN) within single chunks
 4. Preserve exact numbers, units, and technical terms
 5. EVERY word from source must appear in exactly one chunk
+
+Example (from {domain_name}):
+Input: "{domain_example_rule}"
+Output: ["{domain_example_chunk_1}", "{domain_example_chunk_2}"]
 
 Input text:
 ```
@@ -466,26 +491,50 @@ Output as JSON:
   "verification": "all source words accounted for"
 }}
 """
+
+# Template rendering example
+chunking_prompt = CHUNKING_PROMPT_TEMPLATE.format(
+    domain_description=domain.description,  # "material compatibility"
+    entity_types_list=", ".join(domain.entity_types.keys()),  # "materials, parts, environment"
+    key_properties_list=", ".join(domain.key_properties[:5]),  # "thermal_expansion_coef, tensile_strength, ..."
+    relationships_list=", ".join(domain.relationships.keys()),  # "compatible_with, requires"
+    domain_name=domain.name,  # "Mechanical Engineering"
+    domain_example_rule=domain.examples[0].rule_text,  # Domain-specific example
+    domain_example_chunk_1=domain.examples[0].chunks[0],
+    domain_example_chunk_2=domain.examples[0].chunks[1],
+    input_text=user_input
+)
 ```
 
-### 3.3 SMT Conversion Prompt Template
+**Key Advantage:** Same template works for all domains (healthcare, finance, etc.) by injecting domain-specific vocabulary and examples.
+
+### 3.3 SMT Conversion Prompt Template (Domain-Aware)
+
+Conversion prompts use domain-specific registries and naming conventions:
 
 ```python
-SMT_CONVERSION_PROMPT = """
-Convert this material compatibility constraint to SMT-LIB format.
+SMT_CONVERSION_PROMPT_TEMPLATE = """
+Convert this {domain_description} constraint to SMT-LIB format.
 
-MANDATORY VARIABLE REGISTRY:
+DOMAIN: {domain_id}
+VERSION: {domain_version}
+
+MANDATORY VARIABLE REGISTRY (Domain-Specific):
 {registry_json}
 
-STRICT NAMING RULES:
+STRICT NAMING RULES FOR THIS DOMAIN:
 1. Use ONLY canonical names from registry (no aliases)
-2. Pattern: {{entity}}_{{property}}
-   Example: steel_thermal_expansion_coef
-3. For part-material relationships: {{part}}_material
-   Example: bolt_material
-4. Convert all units to standard (μm/m/°C, MPa, etc.)
+2. Naming Pattern: {naming_convention_pattern}
+3. Entity-Property Format: {naming_example_entity_property}
+4. Relationship Format: {naming_example_relationship}
+5. Unit System: {unit_system_description}
 
-CONSTRAINT:
+DOMAIN-SPECIFIC EXAMPLES:
+Input: "{domain_example_input}"
+Output SMT-LIB:
+{domain_example_smt}
+
+CONSTRAINT TO CONVERT:
 ```
 
 {chunk_text}
@@ -504,24 +553,50 @@ OUTPUT FORMAT (JSON):
   ],
   "variables_used": {{
     "var_name": {{
-      "entity": "steel",
-      "property": "thermal_expansion_coef",
-      "type": "Real",
-      "unit": "μm/m/°C",
-      "value": 11.0
+      "entity": "{entity_example}",
+      "property": "{property_example}",
+      "type": "Real|Int|Bool",
+      "unit": "{unit_example}",
+      "value": numeric_value
     }}
   }},
   "reasoning": "brief explanation of conversion"
 }}
 
 VALIDATION CHECKLIST (verify before responding):
-☐ All variable names match registry exactly
-☐ All units converted to standard
-☐ No undefined variables
+☐ All variable names match domain registry exactly
+☐ All units converted to domain's standard units
+☐ No undefined variables (all in registry)
 ☐ Proper SMT-LIB syntax
-☐ Types match (Real, Int, Bool)
+☐ Types match domain schema (Real, Int, Bool, String)
+☐ Naming convention follows domain pattern: {naming_convention_pattern}
 """
+
+# Template rendering with domain context
+smt_conversion_prompt = SMT_CONVERSION_PROMPT_TEMPLATE.format(
+    domain_description=domain.description,
+    domain_id=domain.domain_id,
+    domain_version=domain.version,
+    registry_json=json.dumps(domain.to_registry_dict(), indent=2),
+    naming_convention_pattern=domain.naming_conventions["entity_property"],
+    naming_example_entity_property=domain.naming_conventions["examples"][0],
+    naming_example_relationship=domain.naming_conventions.get("relationship_example", "N/A"),
+    unit_system_description=domain.unit_system.description,
+    domain_example_input=domain.examples[0].rule_text,
+    domain_example_smt=domain.examples[0].expected_smt,
+    chunk_text=chunk_to_convert,
+    entity_example=list(domain.entity_types.keys())[0] if domain.entity_types else "entity",
+    property_example=list(domain.properties.keys())[0] if domain.properties else "property",
+    unit_example=domain.properties[list(domain.properties.keys())[0]]["unit"] if domain.properties else "unit"
+)
 ```
+
+**Domain Adaptation:**
+- **Mechanical Engineering:** Uses "materials", "parts", pattern "material_property"
+- **Healthcare:** Uses "medications", "patients", pattern "drug_property"
+- **Finance:** Uses "transactions", "securities", pattern "txn_property"
+
+Same template, different vocabulary and rules per domain.
 
 -----
 
