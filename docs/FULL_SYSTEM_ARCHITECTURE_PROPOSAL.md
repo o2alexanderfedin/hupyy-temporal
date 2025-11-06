@@ -50,76 +50,274 @@ graph TB
 
 ## 2. Component Specifications
 
-### 2.1 Rules Database Schema
+### 2.1 Rules Database Schema (Domain-Scoped)
+
+> **Cross-Reference:** See `docs/DOMAIN_INDEPENDENCE_ANALYSIS.md` (Section 1.4, 2.4) for domain isolation requirements and multi-domain storage architecture.
+
+All tables include `domain_id` foreign keys to ensure complete isolation between domains. This prevents cross-domain data leakage and enables per-domain analytics, backup, and migration.
 
 ```mermaid
 erDiagram
+    DOMAINS {
+        string domain_id PK
+        string name
+        string version
+        text description
+        jsonb definition
+        timestamp created_at
+        timestamp updated_at
+    }
+
     RULE {
         string rule_id PK
+        string domain_id FK
         string text
         timestamp created_at
         timestamp updated_at
         string status
-        string domain
     }
-    
+
     RULE_CHUNK {
         string chunk_id PK
         string rule_id FK
+        string domain_id FK
         string text
         json source_span
         array dependencies
     }
-    
+
     SMT_FRAGMENT {
         string fragment_id PK
         string chunk_id FK
+        string domain_id FK
         string smt_code
         string fragment_type
         json variables
         float[] embedding
         string validation_status
     }
-    
-    ENTITY_REGISTRY {
-        string entity_id PK
-        string canonical_name
-        array aliases
-        array instances
-        string type
-    }
-    
-    PROPERTY_REGISTRY {
-        string property_id PK
-        string canonical_name
-        array aliases
-        string unit
-        string smt_type
-        json domain_constraints
-    }
-    
-    RULE ||--o{ RULE_CHUNK : contains
-    RULE_CHUNK ||--o{ SMT_FRAGMENT : generates
-    SMT_FRAGMENT }o--|| ENTITY_REGISTRY : references
-    SMT_FRAGMENT }o--|| PROPERTY_REGISTRY : references
+
+    DOMAINS ||--o{ RULE : "scopes"
+    DOMAINS ||--o{ RULE_CHUNK : "isolates"
+    DOMAINS ||--o{ SMT_FRAGMENT : "isolates"
+    RULE ||--o{ RULE_CHUNK : "contains"
+    RULE_CHUNK ||--o{ SMT_FRAGMENT : "generates"
+```
+
+**Key Schema Changes:**
+1. **DOMAINS table** stores domain configurations (entity types, properties, validation rules)
+2. **domain_id foreign keys** in all tables ensure domain isolation
+3. **Entity/Property registries** are now stored in `DOMAINS.definition` (JSONB), not separate tables
+4. **Cascade delete** from DOMAINS removes all associated rules, chunks, and fragments
+
+#### 2.1.1 Table Specifications
+
+**DOMAINS Table:**
+```sql
+CREATE TABLE domains (
+    domain_id VARCHAR(100) PRIMARY KEY,
+    name VARCHAR(200) NOT NULL,
+    version VARCHAR(20) NOT NULL,
+    description TEXT,
+    definition JSONB NOT NULL,  -- Complete domain configuration
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_domains_name ON domains(name);
+CREATE INDEX idx_domains_created ON domains(created_at DESC);
+```
+
+**RULE Table (Updated):**
+```sql
+CREATE TABLE rules (
+    rule_id VARCHAR(100) PRIMARY KEY,
+    domain_id VARCHAR(100) NOT NULL,
+    text TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    status VARCHAR(50) DEFAULT 'pending',
+
+    CONSTRAINT fk_rules_domain
+        FOREIGN KEY (domain_id)
+        REFERENCES domains(domain_id)
+        ON DELETE CASCADE
+);
+
+CREATE INDEX idx_rules_domain ON rules(domain_id);
+CREATE INDEX idx_rules_status_domain ON rules(status, domain_id);
+```
+
+**RULE_CHUNK Table (Updated):**
+```sql
+CREATE TABLE rule_chunks (
+    chunk_id VARCHAR(100) PRIMARY KEY,
+    rule_id VARCHAR(100) NOT NULL,
+    domain_id VARCHAR(100) NOT NULL,
+    text TEXT NOT NULL,
+    source_span JSONB,
+    dependencies TEXT[],
+
+    CONSTRAINT fk_chunks_rule
+        FOREIGN KEY (rule_id)
+        REFERENCES rules(rule_id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT fk_chunks_domain
+        FOREIGN KEY (domain_id)
+        REFERENCES domains(domain_id)
+        ON DELETE CASCADE
+);
+
+CREATE INDEX idx_chunks_rule ON rule_chunks(rule_id);
+CREATE INDEX idx_chunks_domain ON rule_chunks(domain_id);
+```
+
+**SMT_FRAGMENT Table (Updated):**
+```sql
+CREATE TABLE smt_fragments (
+    fragment_id VARCHAR(100) PRIMARY KEY,
+    chunk_id VARCHAR(100) NOT NULL,
+    domain_id VARCHAR(100) NOT NULL,
+    smt_code TEXT NOT NULL,
+    fragment_type VARCHAR(50),
+    variables JSONB,
+    embedding VECTOR(1536),  -- OpenAI ada-002 dimension
+    validation_status VARCHAR(50) DEFAULT 'pending',
+
+    CONSTRAINT fk_fragments_chunk
+        FOREIGN KEY (chunk_id)
+        REFERENCES rule_chunks(chunk_id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT fk_fragments_domain
+        FOREIGN KEY (domain_id)
+        REFERENCES domains(domain_id)
+        ON DELETE CASCADE
+);
+
+CREATE INDEX idx_fragments_chunk ON smt_fragments(chunk_id);
+CREATE INDEX idx_fragments_domain ON smt_fragments(domain_id);
+CREATE INDEX idx_fragments_type_domain ON smt_fragments(fragment_type, domain_id);
+```
+
+#### 2.1.2 Domain Isolation Guarantees
+
+**Database-Level Isolation:**
+- All queries filter by `domain_id` in WHERE clauses
+- Foreign key constraints prevent orphaned data
+- Indexes on `domain_id` ensure fast domain-scoped queries
+- Cascade deletes maintain referential integrity
+
+**Query Examples:**
+```sql
+-- Get all rules in a domain
+SELECT * FROM rules WHERE domain_id = 'mechanical_engineering_v1';
+
+-- Get fragments for a domain-scoped rule
+SELECT f.*
+FROM smt_fragments f
+JOIN rule_chunks c ON f.chunk_id = c.chunk_id
+WHERE f.domain_id = 'healthcare_drug_interactions_v1'
+  AND c.rule_id = 'drug_rule_001';
+
+-- Domain-specific analytics
+SELECT domain_id, COUNT(*) as rule_count, AVG(LENGTH(text)) as avg_length
+FROM rules
+GROUP BY domain_id;
+```
+
+#### 2.1.3 Vector Database Metadata
+
+Vector embeddings include domain_id for namespace isolation:
+
+```json
+{
+  "fragment_id": "frag_uuid",
+  "domain_id": "mechanical_engineering_v1",
+  "rule_id": "rule_001",
+  "text": "Steel expands at 11 μm/m/°C",
+  "embedding": [0.123, 0.456, ...]
+}
+```
+
+**Vector Search with Domain Filtering:**
+```python
+# Pinecone example
+results = index.query(
+    vector=query_embedding,
+    filter={"domain_id": {"$eq": "mechanical_engineering_v1"}},
+    top_k=20
+)
+
+# Weaviate example
+results = client.query.get("Fragment", ["text", "fragment_id"]) \
+    .with_near_vector({"vector": query_embedding}) \
+    .with_where({"path": ["domain_id"], "operator": "Equal",
+                 "valueString": "mechanical_engineering_v1"}) \
+    .with_limit(20) \
+    .do()
+```
+
+#### 2.1.4 Migration Notes
+
+**Backward Compatibility:**
+Existing data is migrated to default domain:
+```sql
+-- Step 1: Create domains table and add mechanical_engineering_v1
+INSERT INTO domains (domain_id, name, version, description, definition)
+VALUES ('mechanical_engineering_v1', 'Mechanical Engineering', '1.0.0',
+        'Legacy data from v1.0', '{ ... existing config ... }');
+
+-- Step 2: Add domain_id column with default
+ALTER TABLE rules ADD COLUMN domain_id VARCHAR(100)
+    DEFAULT 'mechanical_engineering_v1' NOT NULL;
+
+-- Step 3: Add foreign key constraint
+ALTER TABLE rules ADD CONSTRAINT fk_rules_domain
+    FOREIGN KEY (domain_id) REFERENCES domains(domain_id);
+
+-- Repeat for rule_chunks and smt_fragments
+```
+
+**Zero-Downtime Strategy:**
+1. Add `domain_id` columns with defaults (non-breaking)
+2. Backfill existing rows with default domain
+3. Add foreign key constraints
+4. Create indexes
+5. Update application code to use domain-scoped queries
+6. Remove old `domain` string column (if exists)
+
+**Rollback Plan:**
+```sql
+-- Remove foreign key constraints
+ALTER TABLE rules DROP CONSTRAINT fk_rules_domain;
+
+-- Remove domain_id columns
+ALTER TABLE rules DROP COLUMN domain_id;
+
+-- Restore original schema
 ```
 
 ### 2.2 SMT Fragment Storage Schema
 
+Fragment storage includes domain_id for proper isolation:
+
 ```json
 {
   "fragment_id": "uuid-v4",
+  "domain_id": "mechanical_engineering_v1",
   "rule_id": "thermal_expansion_001",
   "chunk_id": "chunk_001_001",
-  
+
   "text": {
     "original": "Steel expands at 11 μm/m/°C",
     "normalized": "Steel has thermal expansion coefficient of 11 μm/m/°C",
     "source_span": [0, 28]
   },
-  
+
   "embedding": [0.123, 0.456, ...],
-  
+
   "smt": {
     "declarations": [
       "(declare-const steel_thermal_expansion_coef Real)"
@@ -131,7 +329,7 @@ erDiagram
       "(assert (>= steel_thermal_expansion_coef 0))"
     ]
   },
-  
+
   "variables": {
     "steel_thermal_expansion_coef": {
       "entity": "steel",
@@ -142,15 +340,15 @@ erDiagram
       "domain": [0, 100]
     }
   },
-  
+
   "metadata": {
+    "domain_id": "mechanical_engineering_v1",
     "entities": ["steel"],
     "properties": ["thermal_expansion"],
     "dependencies": [],
-    "domain": "mechanical_engineering",
     "confidence": 0.95
   },
-  
+
   "validation": {
     "status": "approved",
     "syntax_valid": true,
@@ -159,12 +357,14 @@ erDiagram
     "reviewed_by": "user_123",
     "reviewed_at": "2025-11-05T10:30:00Z"
   },
-  
+
   "version": "1.0",
   "created_at": "2025-11-05T10:00:00Z",
   "updated_at": "2025-11-05T10:30:00Z"
 }
 ```
+
+**Note:** `domain_id` appears at both the top level (for database queries) and in metadata (for semantic context). This redundancy ensures fast filtering and comprehensive audit trails.
 
 -----
 
