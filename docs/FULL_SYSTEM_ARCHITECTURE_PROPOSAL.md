@@ -1210,17 +1210,26 @@ class SMTValidator:
 
 -----
 
-## 6. Query Pipeline
+## 6. Query Pipeline (Domain-Scoped)
 
-### 6.1 Query Processing Flow
+> **Cross-Reference:** See `docs/DOMAIN_INDEPENDENCE_ANALYSIS.md` (Section 1.6, 1.9, 3.2) for domain-scoped query requirements.
+
+Query execution is **domain-scoped**: all queries specify a `domain_id` which determines the entity/property vocabulary, semantic search namespace, and explanation generation strategy.
+
+**Key Principle:** The same query pipeline works for any domain (mechanical engineering, healthcare, finance), adapting behavior based on the loaded domain configuration.
+
+### 6.1 Query Processing Flow (Domain-Aware)
 
 ```mermaid
 flowchart TD
-    Start([User Query]) --> Parse[Parse Query]
-    Parse --> Extract[Extract Entities & Properties]
-    
+    Start([User Query<br/>+ domain_id]) --> LoadDomain[Load Domain Config]
+    LoadDomain --> ValidateDomain{Domain<br/>Exists?}
+    ValidateDomain -->|No| DomainError[Domain Error]
+    ValidateDomain -->|Yes| Parse[Parse Query Against<br/>Domain Schema]
+    Parse --> Extract[Extract Entities & Properties<br/>using Domain Registry]
+
     Extract --> Embed[Generate Query Embedding]
-    Embed --> Search[Semantic Search in Vector DB]
+    Embed --> Search[Semantic Search<br/>Filter: domain_id]
     
     Search --> Retrieve[Retrieve Top-K Fragments]
     Retrieve --> Score[Score & Rank by Relevance]
@@ -1261,38 +1270,133 @@ flowchart TD
     style Timeout fill:#fff4e1
 ```
 
-### 6.2 Query Example
+### 6.2 Query Structure (Generic)
+
+Queries follow a domain-independent structure:
+
+```python
+# Generic query template
+query = {
+    "domain_id": "{domain_identifier}",
+    "entities": {
+        "{entity_instance_name}": {
+            "{property_name}": "{property_value}"
+        }
+    },
+    "context": {
+        "{contextual_property}": "{contextual_value}"
+    },
+    "question": "{question_type}"
+}
+```
+
+**Note:** Replaced `environment` with `context` for generality. `context` holds situational properties that aren't entity-specific.
+
+#### Example 1: Mechanical Engineering
 
 ```python
 # Query: "Can I use steel bolts with aluminum plates at 200°C?"
 
-query = {
+query_mechanical = {
+    "domain_id": "mechanical_engineering_v1",
     "entities": {
         "bolt": {"material": "steel"},
         "plate": {"material": "aluminum"}
     },
-    "environment": {
+    "context": {
         "temperature": 200
     },
     "question": "compatible?"
 }
 
-# Semantic search retrieves:
+# Semantic search retrieves (filtered by domain_id="mechanical_engineering_v1"):
 retrieved_fragments = [
     {
+        "domain_id": "mechanical_engineering_v1",
         "text": "Steel expands at 11 μm/m/°C",
         "smt": "(assert (= steel_thermal_expansion_coef 11.0))",
         "relevance": 0.92
     },
     {
+        "domain_id": "mechanical_engineering_v1",
         "text": "Aluminum expands at 23 μm/m/°C",
         "smt": "(assert (= aluminum_thermal_expansion_coef 23.0))",
         "relevance": 0.91
     },
     {
+        "domain_id": "mechanical_engineering_v1",
         "text": "Differential expansion > 15 μm/m/°C causes stress fractures",
         "smt": "(assert (=> (> (abs (- mat1_expansion mat2_expansion)) 15) (= stress_fracture_risk true)))",
         "relevance": 0.88
+    }
+]
+```
+
+#### Example 2: Healthcare - Drug Interactions
+
+```python
+# Query: "Is warfarin safe with aspirin for a 65-year-old patient?"
+
+query_healthcare = {
+    "domain_id": "healthcare_drug_interactions_v1",
+    "entities": {
+        "patient": {"age": 65},
+        "medication_1": {"drug": "warfarin", "dosage_mg": 5},
+        "medication_2": {"drug": "aspirin", "dosage_mg": 81}
+    },
+    "context": {
+        "kidney_function": "normal"
+    },
+    "question": "safe?"
+}
+
+# Semantic search retrieves (filtered by domain_id="healthcare_drug_interactions_v1"):
+retrieved_fragments = [
+    {
+        "domain_id": "healthcare_drug_interactions_v1",
+        "text": "Warfarin and aspirin increase bleeding risk",
+        "smt": "(assert (=> (and (= med1 warfarin) (= med2 aspirin)) (= bleeding_risk high)))",
+        "relevance": 0.94
+    },
+    {
+        "domain_id": "healthcare_drug_interactions_v1",
+        "text": "For patients age > 60, bleeding risk increases by 40%",
+        "smt": "(assert (=> (> patient_age 60) (= risk_multiplier 1.4)))",
+        "relevance": 0.89
+    }
+]
+```
+
+#### Example 3: Finance - Regulatory Compliance
+
+```python
+# Query: "Does this $50M leveraged transaction comply with Basel III?"
+
+query_finance = {
+    "domain_id": "finance_compliance_v1",
+    "entities": {
+        "transaction": {
+            "type": "leveraged_loan",
+            "notional_amount": 50000000
+        },
+        "institution": {
+            "capital_ratio": 12.5,
+            "tier1_capital": 8.5
+        }
+    },
+    "context": {
+        "regulation": "basel_iii"
+    },
+    "question": "compliant?"
+}
+
+# Semantic search retrieves (filtered by domain_id="finance_compliance_v1"):
+retrieved_fragments = [
+    {
+        "domain_id": "finance_compliance_v1",
+        "text": "Basel III requires minimum 10.5% capital ratio for leveraged transactions",
+        "smt": "(assert (=> (and (= regulation basel_iii) (= txn_type leveraged)) (>= capital_ratio 10.5)))",
+        "relevance": 0.93
     }
 ]
 
@@ -1345,38 +1449,50 @@ response = {
 }
 ```
 
-### 6.3 SMT Composition Algorithm
+### 6.3 SMT Composition Algorithm (Domain-Aware)
+
+**Key Domain Integration:** The SMT composer loads the domain registry to:
+- Validate variable names against domain naming conventions
+- Apply domain-specific type constraints
+- Use domain property ranges for bounds checking
 
 ```python
 class SMTComposer:
+    def __init__(self, domain_registry: DomainRegistry):
+        self.domain_registry = domain_registry
+
     def compose(self, query: Query, fragments: List[SMTFragment]) -> str:
         """
-        Compose final SMT-LIB program from fragments and query
+        Compose final SMT-LIB program from fragments and query.
+        Uses domain schema for variable validation and type constraints.
         """
+        # Load domain configuration
+        domain = self.domain_registry.get(query.domain_id)
+
         # 1. Collect all declarations (deduplicate)
         declarations = self._collect_declarations(fragments)
-        
+
         # 2. Collect all assertions
         assertions = self._collect_assertions(fragments)
-        
-        # 3. Add query-specific constraints
-        query_constraints = self._query_to_smt(query)
-        
-        # 4. Add domain constraints
-        domain_constraints = self._add_domain_constraints(declarations)
-        
+
+        # 3. Add query-specific constraints (domain-aware)
+        query_constraints = self._query_to_smt(query, domain)
+
+        # 4. Add domain constraints (type bounds, enums)
+        domain_constraints = self._add_domain_constraints(declarations, domain)
+
         # 5. Optimize formula (simplify, remove redundancies)
         optimized = self._optimize(assertions + query_constraints)
-        
+
         # 6. Compose final program
         smt_program = self._format_smt_lib(
             declarations,
             domain_constraints,
             optimized
         )
-        
+
         return smt_program
-    
+
     def _collect_declarations(self, fragments: List[SMTFragment]) -> List[str]:
         """Deduplicate variable declarations"""
         decls = {}
@@ -1386,12 +1502,12 @@ class SMTComposer:
                 if var_name not in decls:
                     decls[var_name] = decl
         return list(decls.values())
-    
+
     def _collect_assertions(self, fragments: List[SMTFragment]) -> List[str]:
         """Collect all assertions, checking for contradictions"""
         assertions = []
         seen = set()
-        
+
         for fragment in fragments:
             for assertion in fragment.smt['assertions']:
                 # Normalize to detect duplicates
@@ -1399,27 +1515,31 @@ class SMTComposer:
                 if normalized not in seen:
                     assertions.append(assertion)
                     seen.add(normalized)
-        
+
         return assertions
-    
-    def _query_to_smt(self, query: Query) -> List[str]:
-        """Convert query to SMT constraints"""
+
+    def _query_to_smt(self, query: Query, domain: Domain) -> List[str]:
+        """Convert query to SMT constraints using domain naming conventions"""
         constraints = []
-        
-        # Entity constraints
+
+        # Entity constraints - use domain naming patterns
         for entity, properties in query.entities.items():
             for prop, value in properties.items():
-                var_name = f"{entity}_{prop}"
+                # Use domain naming convention
+                var_name = domain.format_variable_name(entity, prop)
                 constraints.append(f"(assert (= {var_name} {self._format_value(value)}))")
-        
-        # Environment constraints
-        for prop, value in query.environment.items():
-            constraints.append(f"(assert (= {prop} {value}))")
-        
-        # Goal constraint
-        if query.question == "compatible?":
-            constraints.append("(assert (not incompatible))")
-        
+
+        # Context constraints (generic replacement for "environment")
+        for prop, value in query.context.items():
+            # Context properties may not follow entity_property pattern
+            var_name = domain.resolve_context_property(prop)
+            constraints.append(f"(assert (= {var_name} {value}))")
+
+        # Goal constraint - domain-specific question types
+        goal_constraint = domain.get_goal_constraint(query.question)
+        if goal_constraint:
+            constraints.append(goal_constraint)
+
         return constraints
     
     def _optimize(self, assertions: List[str]) -> List[str]:
@@ -1433,9 +1553,14 @@ class SMTComposer:
 
 -----
 
-## 7. UNSAT Core Analysis
+### 6.4 Result Interpretation (Domain-Aware)
 
-### 7.1 Conflict Resolution Flow
+**Domain-Aware Explanations:** The system uses domain-specific terminology and concepts when explaining results:
+- UNSAT explanations reference domain entities and properties
+- Suggestions use domain vocabulary (e.g., "materials" for mechanical, "drugs" for healthcare)
+- Domain plugins can provide custom explanation strategies
+
+#### 6.4.1 Conflict Resolution Flow
 
 ```mermaid
 flowchart TD
@@ -1472,42 +1597,48 @@ flowchart TD
     style End fill:#e1f5ff
 ```
 
-### 7.2 UNSAT Analysis Implementation
+#### 6.4.2 UNSAT Analysis Implementation (Domain-Aware)
 
 ```python
 class UNSATAnalyzer:
-    def __init__(self, registry, fragment_db):
-        self.registry = registry
+    def __init__(self, domain_registry: DomainRegistry, fragment_db):
+        self.domain_registry = domain_registry
         self.fragment_db = fragment_db
         self.solver = Z3Solver()
-    
+
     def analyze(self, smt_program: str, query: Query) -> UNSATReport:
         """
-        Analyze UNSAT result and generate explanation
+        Analyze UNSAT result and generate domain-aware explanation.
+        Uses domain vocabulary and concepts.
         """
+        # Load domain for terminology
+        domain = self.domain_registry.get(query.domain_id)
+
         # 1. Extract UNSAT core
         core = self.solver.get_unsat_core(smt_program)
-        
+
         # 2. Map assertions back to source rules
         conflicting_rules = self._map_to_rules(core)
-        
+
         # 3. Categorize conflict type
         conflict_type = self._categorize_conflict(core)
-        
-        # 4. Generate human explanation
+
+        # 4. Generate human explanation using domain terminology
         explanation = self._generate_explanation(
             conflict_type,
             conflicting_rules,
-            query
+            query,
+            domain  # Domain context added
         )
-        
-        # 5. Suggest alternatives
+
+        # 5. Suggest alternatives using domain concepts
         suggestions = self._generate_suggestions(
             conflict_type,
             conflicting_rules,
-            query
+            query,
+            domain  # Domain context added
         )
-        
+
         return UNSATReport(
             compatible=False,
             conflict_type=conflict_type,
@@ -1559,104 +1690,454 @@ class UNSATAnalyzer:
         self,
         conflict_type: str,
         rules: List[Rule],
-        query: Query
+        query: Query,
+        domain: Domain
     ) -> str:
-        """Generate human-readable explanation"""
-        
+        """Generate human-readable explanation using domain-specific terminology"""
+
+        # Build domain-specific context for LLM
+        domain_context = {
+            "domain_name": domain.name,
+            "entity_types": list(domain.entity_types.keys()),
+            "key_properties": [p for p in domain.properties.keys()][:5],
+            "description": domain.description
+        }
+
         prompt = f"""
         Generate a clear explanation for why this combination is incompatible.
-        
+
+        DOMAIN: {domain_context['domain_name']}
+        Domain Context: {domain_context['description']}
+        Entity Types: {', '.join(domain_context['entity_types'])}
+
         Query: {query.to_natural_language()}
-        
+
         Conflicting rules:
         {chr(10).join(f"- {r.text}" for r in rules)}
-        
+
         Conflict type: {conflict_type}
-        
+
         Provide a concise explanation (2-3 sentences) that:
-        1. States what's incompatible
+        1. States what's incompatible using domain terminology
         2. Explains why (which constraints conflict)
         3. Quantifies the problem if applicable
-        
-        Use natural language, not technical jargon.
+
+        Use natural language appropriate for {domain.name} domain experts.
         """
-        
+
         return call_llm(prompt)
     
     def _generate_suggestions(
         self,
         conflict_type: str,
         rules: List[Rule],
-        query: Query
+        query: Query,
+        domain: Domain
     ) -> List[Suggestion]:
-        """Generate alternative solutions"""
-        
+        """Generate alternative solutions using domain-specific strategies"""
+
         suggestions = []
-        
-        # Strategy 1: Relax constraints
+
+        # Strategy 1: Relax context constraints
         if conflict_type == "threshold_violation":
-            suggestions.extend(self._suggest_parameter_changes(rules, query))
-        
-        # Strategy 2: Substitute materials/parts
+            suggestions.extend(self._suggest_parameter_changes(rules, query, domain))
+
+        # Strategy 2: Substitute entities (domain-aware)
         if conflict_type in ["value_contradiction", "logical_impossibility"]:
-            suggestions.extend(self._suggest_substitutions(rules, query))
-        
-        # Strategy 3: Add intermediate components
-        suggestions.extend(self._suggest_additions(rules, query))
-        
+            suggestions.extend(self._suggest_substitutions(rules, query, domain))
+
+        # Strategy 3: Domain-specific alternatives (use plugin if available)
+        if domain.has_plugin():
+            plugin_suggestions = domain.plugin.generate_suggestions(
+                conflict_type, rules, query
+            )
+            suggestions.extend(plugin_suggestions)
+
         # Rank by feasibility
         ranked = self._rank_suggestions(suggestions)
-        
+
         return ranked[:5]  # Return top 5
-    
-    def _suggest_parameter_changes(self, rules: List[Rule], query: Query) -> List[Suggestion]:
-        """Suggest changing environmental parameters"""
+
+    def _suggest_parameter_changes(
+        self,
+        rules: List[Rule],
+        query: Query,
+        domain: Domain
+    ) -> List[Suggestion]:
+        """Suggest changing context parameters using domain vocabulary"""
         suggestions = []
-        
-        # Extract parameters that could be modified
-        for rule in rules:
-            if "temperature" in rule.text.lower():
-                # Suggest temperature range
-                suggestions.append(Suggestion(
-                    type="parameter_change",
-                    description="Reduce operating temperature",
-                    specifics="Operate below 100°C instead of 200°C",
-                    feasibility=0.8
-                ))
-        
-        return suggestions
-    
-    def _suggest_substitutions(self, rules: List[Rule], query: Query) -> List[Suggestion]:
-        """Suggest alternative materials/parts"""
-        suggestions = []
-        
-        # For each entity in query, find compatible alternatives
-        for entity_name, properties in query.entities.items():
-            if "material" in properties:
-                current_material = properties["material"]
-                
-                # Query DB for compatible materials
-                alternatives = self._find_compatible_materials(
-                    current_material,
-                    query
-                )
-                
-                for alt in alternatives:
+
+        # Extract context properties from domain that could be modified
+        for context_prop in query.context.keys():
+            if context_prop in domain.properties:
+                prop_def = domain.properties[context_prop]
+                current_value = query.context[context_prop]
+
+                # Suggest value within domain's valid range
+                if prop_def.smt_type == "Real" and prop_def.domain:
+                    min_val, max_val = prop_def.domain
                     suggestions.append(Suggestion(
-                        type="substitution",
-                        description=f"Replace {current_material} {entity_name} with {alt.name}",
-                        specifics=f"{alt.name} has compatible properties",
-                        feasibility=alt.compatibility_score
+                        type="parameter_change",
+                        description=f"Adjust {context_prop}",
+                        specifics=f"Try values between {min_val} and {max_val} {prop_def.unit}",
+                        feasibility=0.7
                     ))
-        
+
+        return suggestions
+
+    def _suggest_substitutions(
+        self,
+        rules: List[Rule],
+        query: Query,
+        domain: Domain
+    ) -> List[Suggestion]:
+        """Suggest alternative entities using domain entity registry"""
+        suggestions = []
+
+        # For each entity in query, find compatible alternatives from domain
+        for entity_name, properties in query.entities.items():
+            # Determine entity type from domain
+            entity_type = domain.find_entity_type(entity_name)
+
+            if entity_type and entity_type in domain.entity_types:
+                # Get all instances of this entity type
+                available_instances = domain.entity_types[entity_type].instances
+
+                for instance_name, instance_def in available_instances.items():
+                    if instance_name != properties.get(entity_type):
+                        suggestions.append(Suggestion(
+                            type="substitution",
+                            description=f"Replace {entity_name} with {instance_name}",
+                            specifics=f"Alternative {domain.entity_types[entity_type].canonical_var}",
+                            feasibility=0.6
+                        ))
+
         return suggestions
 ```
 
 -----
 
-## 8. Performance Optimization
+### 6.5 Domain Plugin Integration
 
-### 8.1 Caching Strategy
+**Plugin Architecture:** Domains can provide custom plugins to extend query processing with domain-specific logic. This allows specialized explanation strategies, suggestion engines, and result formatting.
+
+#### 6.5.1 Plugin Interface
+
+Domains register plugins that implement the `DomainPlugin` interface:
+
+```python
+from abc import ABC, abstractmethod
+from typing import List, Optional
+
+class DomainPlugin(ABC):
+    """
+    Base interface for domain-specific query processing extensions
+    """
+
+    @abstractmethod
+    def name(self) -> str:
+        """Plugin identifier"""
+        pass
+
+    @abstractmethod
+    def version(self) -> str:
+        """Plugin version (semver)"""
+        pass
+
+    def preprocess_query(self, query: Query, domain: Domain) -> Query:
+        """
+        Optional: Transform query before processing.
+        Default: no transformation
+        """
+        return query
+
+    def validate_query(self, query: Query, domain: Domain) -> List[str]:
+        """
+        Optional: Domain-specific validation.
+        Returns list of validation errors (empty if valid).
+        """
+        return []
+
+    def generate_explanation(
+        self,
+        conflict_type: str,
+        rules: List[Rule],
+        query: Query,
+        domain: Domain
+    ) -> Optional[str]:
+        """
+        Optional: Generate custom explanation for UNSAT results.
+        Return None to use default explanation.
+        """
+        return None
+
+    def generate_suggestions(
+        self,
+        conflict_type: str,
+        rules: List[Rule],
+        query: Query,
+        domain: Domain
+    ) -> List[Suggestion]:
+        """
+        Optional: Generate domain-specific suggestions.
+        Augments default suggestion engine.
+        """
+        return []
+
+    def format_result(
+        self,
+        result: QueryResult,
+        query: Query,
+        domain: Domain
+    ) -> dict:
+        """
+        Optional: Custom result formatting for domain.
+        Return None to use default formatting.
+        """
+        return None
+```
+
+#### 6.5.2 Example Plugin: Mechanical Engineering
+
+```python
+class MechanicalEngineeringPlugin(DomainPlugin):
+    def name(self) -> str:
+        return "mechanical_engineering_plugin"
+
+    def version(self) -> str:
+        return "1.0.0"
+
+    def validate_query(self, query: Query, domain: Domain) -> List[str]:
+        """Validate mechanical engineering queries"""
+        errors = []
+
+        # Ensure temperature is in valid range
+        if "temperature" in query.context:
+            temp = query.context["temperature"]
+            if temp < -273.15:  # Below absolute zero
+                errors.append("Temperature cannot be below absolute zero (-273.15°C)")
+            if temp > 3000:  # Unrealistic for materials
+                errors.append("Temperature above material limits (max 3000°C)")
+
+        # Ensure materials exist in registry
+        for entity_name, props in query.entities.items():
+            if "material" in props:
+                material = props["material"]
+                if material not in domain.entity_types["materials"].instances:
+                    errors.append(f"Unknown material: {material}")
+
+        return errors
+
+    def generate_explanation(
+        self,
+        conflict_type: str,
+        rules: List[Rule],
+        query: Query,
+        domain: Domain
+    ) -> Optional[str]:
+        """Generate mechanical engineering-specific explanations"""
+
+        if conflict_type == "threshold_violation":
+            # Extract thermal expansion conflicts
+            if any("thermal_expansion" in r.text.lower() for r in rules):
+                # Custom explanation with engineering context
+                return """
+                The selected materials have incompatible thermal expansion coefficients
+                for the operating temperature. When subjected to the specified temperature,
+                differential expansion will exceed the safe threshold, leading to stress
+                fractures at the interface. Consider using materials with similar expansion
+                rates or implementing thermal expansion compensators.
+                """
+
+        return None  # Use default explanation
+
+    def generate_suggestions(
+        self,
+        conflict_type: str,
+        rules: List[Rule],
+        query: Query,
+        domain: Domain
+    ) -> List[Suggestion]:
+        """Generate mechanical engineering-specific suggestions"""
+
+        suggestions = []
+
+        # Thermal expansion mismatch suggestions
+        if any("thermal_expansion" in r.text.lower() for r in rules):
+            suggestions.extend([
+                Suggestion(
+                    type="design_change",
+                    description="Add thermal expansion compensator",
+                    specifics="Use bellows joint or expansion sleeve at interface",
+                    feasibility=0.85
+                ),
+                Suggestion(
+                    type="material_pair",
+                    description="Use materials with matched expansion coefficients",
+                    specifics="Steel-steel or aluminum-aluminum combination",
+                    feasibility=0.9
+                )
+            ])
+
+        return suggestions
+```
+
+#### 6.5.3 Example Plugin: Healthcare Drug Interactions
+
+```python
+class HealthcarePlugin(DomainPlugin):
+    def name(self) -> str:
+        return "healthcare_drug_interaction_plugin"
+
+    def version(self) -> str:
+        return "1.0.0"
+
+    def validate_query(self, query: Query, domain: Domain) -> List[str]:
+        """Validate healthcare queries"""
+        errors = []
+
+        # Check patient age is realistic
+        for entity_name, props in query.entities.items():
+            if "age" in props:
+                age = props["age"]
+                if age < 0 or age > 120:
+                    errors.append(f"Patient age {age} is out of valid range (0-120)")
+
+        # Check dosages are positive
+        for entity_name, props in query.entities.items():
+            if "dosage_mg" in props:
+                dosage = props["dosage_mg"]
+                if dosage <= 0:
+                    errors.append(f"Dosage must be positive, got {dosage}")
+
+        return errors
+
+    def generate_explanation(
+        self,
+        conflict_type: str,
+        rules: List[Rule],
+        query: Query,
+        domain: Domain
+    ) -> Optional[str]:
+        """Generate healthcare-specific explanations"""
+
+        if conflict_type == "logical_impossibility":
+            # Drug interaction contraindication
+            return """
+            These medications have a documented contraindication. The combination
+            significantly increases the risk of adverse events, particularly bleeding
+            complications. This drug interaction is flagged in clinical guidelines
+            as requiring alternative therapy or intensive monitoring.
+            """
+
+        return None
+
+    def generate_suggestions(
+        self,
+        conflict_type: str,
+        rules: List[Rule],
+        query: Query,
+        domain: Domain
+    ) -> List[Suggestion]:
+        """Generate healthcare-specific suggestions"""
+
+        suggestions = []
+
+        # Suggest alternative medications
+        suggestions.extend([
+            Suggestion(
+                type="medication_change",
+                description="Consider alternative anticoagulant",
+                specifics="Consult prescriber about switching to different medication class",
+                feasibility=0.8
+            ),
+            Suggestion(
+                type="monitoring",
+                description="Intensive INR monitoring protocol",
+                specifics="Monitor INR daily for first week, then weekly",
+                feasibility=0.6
+            )
+        ])
+
+        return suggestions
+```
+
+#### 6.5.4 Plugin Registration
+
+Domains specify their plugin in the domain definition:
+
+```json
+{
+  "domain_id": "mechanical_engineering_v1",
+  "name": "Mechanical Engineering",
+  "version": "1.0.0",
+  "plugin": {
+    "class_name": "MechanicalEngineeringPlugin",
+    "module": "plugins.mechanical_engineering",
+    "enabled": true
+  },
+  "entity_types": { ... },
+  "properties": { ... }
+}
+```
+
+The query pipeline loads and invokes plugins at designated hook points:
+
+```python
+class QueryPipeline:
+    def execute(self, query: Query) -> QueryResult:
+        # Load domain and plugin
+        domain = self.domain_registry.get(query.domain_id)
+        plugin = domain.get_plugin() if domain.has_plugin() else None
+
+        # Hook: Preprocess query
+        if plugin:
+            query = plugin.preprocess_query(query, domain)
+
+        # Hook: Validate query
+        if plugin:
+            validation_errors = plugin.validate_query(query, domain)
+            if validation_errors:
+                return QueryResult(error=validation_errors)
+
+        # ... normal query processing ...
+
+        # Hook: Custom explanation (if UNSAT)
+        if result.is_unsat():
+            if plugin:
+                custom_explanation = plugin.generate_explanation(
+                    result.conflict_type, result.rules, query, domain
+                )
+                if custom_explanation:
+                    result.explanation = custom_explanation
+
+            # Hook: Custom suggestions
+            if plugin:
+                plugin_suggestions = plugin.generate_suggestions(
+                    result.conflict_type, result.rules, query, domain
+                )
+                result.suggestions.extend(plugin_suggestions)
+
+        # Hook: Custom formatting
+        if plugin:
+            formatted = plugin.format_result(result, query, domain)
+            if formatted:
+                return formatted
+
+        return result
+```
+
+**Benefits of Plugin Architecture:**
+- Domain experts can customize behavior without modifying core system
+- Plugins can leverage domain-specific knowledge (medical guidelines, engineering standards)
+- Explanation quality improves with domain-specific context
+- Easy to add new domains by implementing plugin interface
+
+-----
+
+## 7. Performance Optimization
+
+### 7.1 Caching Strategy
 
 ```mermaid
 graph TD
@@ -1685,7 +2166,7 @@ graph TD
     style Return2 fill:#e1ffe1
 ```
 
-### 8.2 Performance Metrics
+### 7.2 Performance Metrics
 
 ```python
 class PerformanceMonitor:
@@ -1731,9 +2212,9 @@ class PerformanceMonitor:
 
 -----
 
-## 9. API Specifications
+## 8. API Specifications
 
-### 9.1 Ingestion API
+### 8.1 Ingestion API
 
 ```python
 @app.post("/api/v1/rules/ingest")
@@ -1783,7 +2264,7 @@ async def delete_rule(rule_id: str) -> DeleteResponse:
     pass
 ```
 
-### 9.2 Query API
+### 8.2 Query API
 
 ```python
 @app.post("/api/v1/query/check_compatibility")
@@ -1855,7 +2336,7 @@ async def find_compatible(query: FindCompatibleQuery) -> List[Combination]:
     pass
 ```
 
-### 9.3 Registry API
+### 8.3 Registry API
 
 ```python
 @app.get("/api/v1/registry/entities")
@@ -1886,7 +2367,7 @@ async def validate_name(name: str) -> ValidationResponse:
 
 -----
 
-## 10. Deployment Architecture
+## 9. Deployment Architecture
 
 ```mermaid
 graph TB
@@ -1968,9 +2449,9 @@ graph TB
 
 -----
 
-## 11. Error Handling
+## 10. Error Handling
 
-### 11.1 Error Categories
+### 10.1 Error Categories
 
 ```mermaid
 mindmap
@@ -2008,7 +2489,7 @@ mindmap
         Network partition
 ```
 
-### 11.2 Error Response Format
+### 10.2 Error Response Format
 
 ```json
 {
@@ -2037,9 +2518,9 @@ mindmap
 
 -----
 
-## 12. Testing Strategy
+## 11. Testing Strategy
 
-### 12.1 Test Pyramid
+### 11.1 Test Pyramid
 
 ```mermaid
 graph TD
@@ -2057,7 +2538,7 @@ graph TD
     style Unit fill:#e1ffe1
 ```
 
-### 12.2 Test Cases
+### 11.2 Test Cases
 
 ```python
 # Unit Tests
@@ -2109,9 +2590,9 @@ class TestSystemE2E:
 
 -----
 
-## 13. Future Enhancements
+## 12. Future Enhancements
 
-### 13.1 Roadmap
+### 12.1 Roadmap
 
 ```mermaid
 gantt
@@ -2143,7 +2624,7 @@ gantt
     Active learning             :2026-06-15, 30d
 ```
 
-### 13.2 Potential Features
+### 12.2 Potential Features
 
 1. **Constraint Relaxation**: When UNSAT, automatically relax constraints to find nearest compatible solution
 1. **Multi-Objective Optimization**: Find combinations that optimize multiple goals (cost + strength + weight)
