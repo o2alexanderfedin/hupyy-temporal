@@ -325,19 +325,182 @@ VALIDATION CHECKLIST (verify before responding):
 
 -----
 
-## 4. Entity/Property Registry
+## 4. Entity/Property Registry (Domain-Independent)
 
-### 4.1 Registry Structure
+> **Cross-Reference:** See `docs/DOMAIN_INDEPENDENCE_ANALYSIS.md` (Section 1.1, 1.2, 2.1, 2.2) for detailed analysis of domain independence requirements.
+
+The Entity/Property Registry is a **domain-configurable** system that defines the vocabulary, types, and constraints for a specific problem domain. Unlike version 1.0 which hardcoded mechanical engineering entities, version 2.0 treats domains as first-class, pluggable configurations.
+
+**Key Principle:** The registry structure is generic and works for any domain (mechanical engineering, healthcare, finance, temporal logic, etc.). Entity types, properties, and relationships are loaded from domain-specific configuration files.
+
+### 4.1 Generic Registry Structure
+
+Each domain defines its own registry following this template:
 
 ```json
 {
-  "version": "1.0",
-  "last_updated": "2025-11-05T10:00:00Z",
-  
-  "entities": {
+  "domain_id": "{unique_domain_identifier}",
+  "name": "{Human-readable domain name}",
+  "version": "major.minor.patch",
+  "description": "{Domain purpose and scope}",
+  "last_updated": "ISO-8601 timestamp",
+
+  "entity_types": {
+    "{entity_type_name}": {
+      "canonical_var": "{variable_prefix}",
+      "aliases": ["{alternative_names}"],
+      "smt_type": "Enum|String",
+      "instances": {
+        "{instance_name}": {
+          "aliases": ["{alternative_instance_names}"],
+          "properties_required": ["{property_list}"]
+        }
+      }
+    }
+  },
+
+  "properties": {
+    "{property_name}": {
+      "canonical_var": "{smt_variable_name}",
+      "aliases": ["{alternative_property_names}"],
+      "unit": "{unit_string}",
+      "smt_type": "Real|Int|Bool|String",
+      "domain": [min_value, max_value],
+      "description": "{Property meaning and constraints}"
+    }
+  },
+
+  "relationships": {
+    "{relationship_name}": {
+      "canonical_var": "{relation_variable}",
+      "smt_type": "Bool",
+      "arity": 2,
+      "description": "{Relationship semantics}"
+    }
+  },
+
+  "naming_conventions": {
+    "entity_property": "{template_pattern}",
+    "examples": ["{example_variable_names}"]
+  }
+}
+```
+
+**Supported SMT Types:**
+- `Real`: Continuous numeric values (IEEE floating point)
+- `Int`: Discrete integer values
+- `Bool`: Boolean predicates
+- `Enum`: Enumerated type (mapped to Int with constraints)
+- `String`: String literals (solver-dependent)
+
+### 4.2 Domain Loading and Validation
+
+Domains are loaded at system startup and validated against the domain schema:
+
+```mermaid
+flowchart TD
+    Start[System Startup] --> LoadDomains[Load Domain Definitions<br/>from config/domains/]
+
+    LoadDomains --> ValidateSchema{Valid JSON<br/>Schema?}
+    ValidateSchema -->|No| LogError[Log Error + Skip Domain]
+    ValidateSchema -->|Yes| ValidateContent{Semantic<br/>Validation?}
+
+    ValidateContent -->|No| LogWarning[Log Warning + Skip Domain]
+    ValidateContent -->|Yes| RegisterDomain[Register in Domain Registry]
+
+    RegisterDomain --> CacheMeta[Cache Entity/Property Metadata]
+    CacheMeta --> BuildIndex[Build Search Indexes]
+
+    BuildIndex --> Ready[Domain Ready for Ingestion/Query]
+
+    LogError --> CheckMore{More<br/>Domains?}
+    LogWarning --> CheckMore
+    Ready --> CheckMore
+
+    CheckMore -->|Yes| LoadDomains
+    CheckMore -->|No| Complete[System Ready]
+
+    style Start fill:#e1f5ff
+    style Complete fill:#e1ffe1
+    style LogError fill:#ffe1e1
+    style LogWarning fill:#fff4e1
+```
+
+**Domain Registry Singleton:**
+```python
+class DomainRegistry:
+    """Thread-safe singleton for managing domain configurations"""
+
+    @classmethod
+    def get(cls, domain_id: str) -> Domain:
+        """Retrieve domain configuration by ID"""
+
+    @classmethod
+    def list_domains(cls) -> List[DomainSummary]:
+        """List all registered domains"""
+
+    @classmethod
+    def register(cls, domain: Domain) -> None:
+        """Register new domain (validation required)"""
+```
+
+**Domain Validation Rules:**
+1. `domain_id` must be unique and immutable
+2. All `smt_type` values must be valid SMT-LIB types
+3. Property `domain` ranges must be valid (min <= max)
+4. Entity `instances` must reference defined properties
+5. Circular dependencies between entities are detected and rejected
+6. Naming conventions must produce valid SMT-LIB identifiers
+
+### 4.3 Registry Management Flow
+
+The registry remains stable during operation but can be updated through controlled processes:
+
+```mermaid
+stateDiagram-v2
+    [*] --> Initial: Load Domain Registry
+
+    Initial --> Processing: New Rule Ingestion
+    Processing --> Extraction: Extract Terms
+
+    Extraction --> KnownTerm: Term in Domain Registry?
+    KnownTerm --> Processing: Yes - Continue
+    KnownTerm --> NewTerm: No - Flag New Term
+
+    NewTerm --> Analysis: Analyze Context
+    Analysis --> Classification: Classify (Entity/Property/Relation)
+
+    Classification --> Review: Queue for Human Review
+    Review --> Approve: Approved?
+
+    Approve --> UpdateRegistry: Yes - Update Domain Registry
+    Approve --> Reject: No - Mark as Invalid
+
+    UpdateRegistry --> Propagate: Revalidate Dependent Rules
+    Propagate --> Processing
+
+    Reject --> Processing
+    Processing --> [*]: Ingestion Complete
+```
+
+**Note:** Domain registry updates trigger revalidation of all rules using that domain to maintain consistency.
+
+### 4.4 Multi-Domain Examples
+
+The same registry structure serves diverse domains:
+
+#### Example 1: Mechanical Engineering (Reference Implementation)
+
+```json
+{
+  "domain_id": "mechanical_engineering_v1",
+  "name": "Mechanical Engineering - Materials Compatibility",
+  "version": "1.0.0",
+
+  "entity_types": {
     "materials": {
       "canonical_var": "material",
-      "aliases": ["metal", "substance", "alloy", "composition"],
+      "aliases": ["metal", "substance", "alloy"],
       "smt_type": "Enum",
       "instances": {
         "steel": {
@@ -347,135 +510,214 @@ VALIDATION CHECKLIST (verify before responding):
         "aluminum": {
           "aliases": ["aluminium", "al"],
           "properties_required": ["thermal_expansion_coef", "yield_strength"]
-        },
-        "copper": {
-          "aliases": ["cu"],
-          "properties_required": ["thermal_expansion_coef", "conductivity"]
         }
       }
     },
-    
     "parts": {
       "canonical_var": "part",
-      "aliases": ["component", "piece", "element"],
+      "aliases": ["component", "piece"],
       "smt_type": "Enum",
       "instances": {
         "bolt": {
           "aliases": ["screw", "fastener"],
-          "properties_required": ["material", "diameter", "length", "torque"]
+          "properties_required": ["material", "diameter", "torque"]
         },
         "plate": {
           "aliases": ["sheet", "panel"],
           "properties_required": ["material", "thickness"]
-        },
-        "washer": {
-          "aliases": ["spacer"],
-          "properties_required": ["material", "inner_diameter", "outer_diameter"]
         }
       }
-    },
-    
-    "environment": {
-      "canonical_var": "env",
-      "properties": ["temperature", "pressure", "humidity", "atmosphere"]
     }
   },
-  
+
   "properties": {
     "thermal_expansion_coef": {
       "canonical_var": "thermal_expansion_coef",
-      "aliases": ["expansion_rate", "thermal_growth", "expansion_coefficient"],
       "unit": "μm/m/°C",
       "smt_type": "Real",
       "domain": [0, 100],
       "description": "Linear thermal expansion coefficient"
     },
-    
     "tensile_strength": {
       "canonical_var": "tensile_strength",
-      "aliases": ["strength", "breaking_strength"],
       "unit": "MPa",
       "smt_type": "Real",
       "domain": [0, 5000],
-      "description": "Maximum tensile stress material can withstand"
-    },
-    
-    "temperature": {
-      "canonical_var": "temp",
-      "aliases": ["temperature", "heat", "thermal_condition"],
-      "unit": "°C",
-      "smt_type": "Real",
-      "domain": [-273.15, 3000],
-      "description": "Operating temperature"
-    },
-    
-    "torque": {
-      "canonical_var": "torque",
-      "aliases": ["tightening_torque", "fastening_torque"],
-      "unit": "Nm",
-      "smt_type": "Real",
-      "domain": [0, 1000],
-      "description": "Applied rotational force"
+      "description": "Maximum tensile stress"
     }
   },
-  
+
   "relationships": {
     "compatible_with": {
       "canonical_var": "compatible",
       "smt_type": "Bool",
-      "arity": 2,
-      "description": "Two entities can be used together"
-    },
-    
-    "requires": {
-      "canonical_var": "requires",
-      "smt_type": "Bool",
-      "arity": 2,
-      "description": "Entity A requires entity B"
+      "arity": 2
     }
   },
-  
+
   "naming_conventions": {
     "entity_property": "{entity}_{property}",
-    "part_entity": "{part}_{entity}",
-    "comparison": "{entity1}_{entity2}_{relationship}",
-    "examples": [
-      "steel_thermal_expansion_coef",
-      "bolt_material",
-      "steel_aluminum_compatible"
-    ]
+    "examples": ["steel_thermal_expansion_coef", "bolt_material"]
   }
 }
 ```
 
-### 4.2 Registry Management Flow
+#### Example 2: Healthcare - Drug Interactions
 
-```mermaid
-stateDiagram-v2
-    [*] --> Initial: Load Base Registry
-    
-    Initial --> Processing: New Rule Ingestion
-    Processing --> Extraction: Extract Terms
-    
-    Extraction --> KnownTerm: Term in Registry?
-    KnownTerm --> Processing: Yes - Continue
-    KnownTerm --> NewTerm: No - Flag New Term
-    
-    NewTerm --> Analysis: Analyze Context
-    Analysis --> Classification: Classify (Entity/Property/Relation)
-    
-    Classification --> Review: Queue for Human Review
-    Review --> Approve: Approved?
-    
-    Approve --> UpdateRegistry: Yes - Add to Registry
-    Approve --> Reject: No - Mark as Invalid
-    
-    UpdateRegistry --> Propagate: Update Dependent Rules
-    Propagate --> Processing
-    
-    Reject --> Processing
-    Processing --> [*]: Ingestion Complete
+```json
+{
+  "domain_id": "healthcare_drug_interactions_v1",
+  "name": "Healthcare - Drug Interaction Safety",
+  "version": "1.0.0",
+
+  "entity_types": {
+    "medications": {
+      "canonical_var": "drug",
+      "aliases": ["medicine", "pharmaceutical", "medication"],
+      "smt_type": "Enum",
+      "instances": {
+        "warfarin": {
+          "aliases": ["coumadin"],
+          "properties_required": ["dosage_mg", "half_life_hours"]
+        },
+        "aspirin": {
+          "aliases": ["acetylsalicylic_acid"],
+          "properties_required": ["dosage_mg"]
+        }
+      }
+    },
+    "patients": {
+      "canonical_var": "patient",
+      "aliases": ["individual"],
+      "smt_type": "String",
+      "instances": {}
+    }
+  },
+
+  "properties": {
+    "dosage_mg": {
+      "canonical_var": "dosage",
+      "unit": "mg",
+      "smt_type": "Real",
+      "domain": [0, 1000],
+      "description": "Medication dosage"
+    },
+    "age_years": {
+      "canonical_var": "age",
+      "unit": "years",
+      "smt_type": "Int",
+      "domain": [0, 120],
+      "description": "Patient age"
+    },
+    "kidney_function_gfr": {
+      "canonical_var": "kidney_gfr",
+      "unit": "mL/min/1.73m²",
+      "smt_type": "Real",
+      "domain": [0, 150],
+      "description": "Glomerular filtration rate"
+    }
+  },
+
+  "relationships": {
+    "contraindicated_with": {
+      "canonical_var": "contraindicated",
+      "smt_type": "Bool",
+      "arity": 2,
+      "description": "Drugs should not be combined"
+    },
+    "safe_with": {
+      "canonical_var": "safe_combination",
+      "smt_type": "Bool",
+      "arity": 2
+    }
+  },
+
+  "naming_conventions": {
+    "entity_property": "{entity}_{property}",
+    "examples": ["warfarin_dosage", "patient_age", "warfarin_aspirin_contraindicated"]
+  }
+}
 ```
+
+#### Example 3: Finance - Regulatory Compliance
+
+```json
+{
+  "domain_id": "finance_compliance_v1",
+  "name": "Financial Regulatory Compliance",
+  "version": "1.0.0",
+
+  "entity_types": {
+    "transactions": {
+      "canonical_var": "txn",
+      "aliases": ["trade", "transaction"],
+      "smt_type": "String",
+      "instances": {}
+    },
+    "securities": {
+      "canonical_var": "security",
+      "aliases": ["instrument", "asset"],
+      "smt_type": "Enum",
+      "instances": {
+        "stock": {"aliases": ["equity"], "properties_required": ["price", "volume"]},
+        "bond": {"aliases": ["fixed_income"], "properties_required": ["yield", "maturity"]}
+      }
+    },
+    "entities": {
+      "canonical_var": "entity",
+      "aliases": ["institution", "counterparty"],
+      "smt_type": "String",
+      "instances": {}
+    }
+  },
+
+  "properties": {
+    "notional_amount": {
+      "canonical_var": "notional",
+      "unit": "USD",
+      "smt_type": "Real",
+      "domain": [0, 1000000000],
+      "description": "Transaction notional value"
+    },
+    "leverage_ratio": {
+      "canonical_var": "leverage",
+      "unit": "ratio",
+      "smt_type": "Real",
+      "domain": [0, 100],
+      "description": "Financial leverage"
+    },
+    "capital_ratio": {
+      "canonical_var": "capital",
+      "unit": "percentage",
+      "smt_type": "Real",
+      "domain": [0, 100],
+      "description": "Capital adequacy ratio"
+    }
+  },
+
+  "relationships": {
+    "complies_with_dodd_frank": {
+      "canonical_var": "dodd_frank_compliant",
+      "smt_type": "Bool",
+      "arity": 1,
+      "description": "Transaction complies with Dodd-Frank"
+    },
+    "complies_with_basel_iii": {
+      "canonical_var": "basel_iii_compliant",
+      "smt_type": "Bool",
+      "arity": 1,
+      "description": "Entity complies with Basel III"
+    }
+  },
+
+  "naming_conventions": {
+    "entity_property": "{entity}_{property}",
+    "examples": ["txn_notional_amount", "entity_capital_ratio"]
+  }
+}
+```
+
+**Key Insight:** The same ingestion and query pipelines work identically for all three domains. The only difference is which domain configuration is loaded.
 
 -----
 
