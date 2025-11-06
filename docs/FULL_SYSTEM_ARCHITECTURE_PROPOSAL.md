@@ -2212,157 +2212,688 @@ class PerformanceMonitor:
 
 -----
 
-## 8. API Specifications
+## 8. API Specifications (Domain-Scoped)
 
-### 8.1 Ingestion API
+> **Cross-Reference:** See `docs/DOMAIN_INDEPENDENCE_ANALYSIS.md` (Sections 1.7, 3.4, 6) for domain-scoped API requirements.
+
+All API endpoints are **domain-scoped**: operations are isolated to specific domains, ensuring multi-tenancy and domain isolation at the API layer.
+
+**Key Architectural Principle:** Use RESTful `/domains/{domain_id}/resources` pattern for all domain-specific operations.
+
+### 8.1 Domain Management API
+
+#### Create Domain
+
+```python
+@app.post("/api/v1/domains")
+async def create_domain(domain_def: DomainDefinition) -> DomainResponse:
+    """
+    Register a new domain with its entity/property schema
+
+    Request Body:
+    {
+        "domain_id": "healthcare_drug_interactions_v1",
+        "name": "Healthcare - Drug Interaction Safety",
+        "version": "1.0.0",
+        "description": "Drug interaction checking for clinical settings",
+        "entity_types": {
+            "medications": {
+                "canonical_var": "drug",
+                "smt_type": "Enum",
+                "instances": {...}
+            },
+            "patients": {...}
+        },
+        "properties": {
+            "dosage_mg": {
+                "canonical_var": "dosage",
+                "unit": "mg",
+                "smt_type": "Real",
+                "domain": [0, 1000]
+            }
+        },
+        "naming_conventions": {...},
+        "plugin": {
+            "class_name": "HealthcarePlugin",
+            "module": "plugins.healthcare",
+            "enabled": true
+        }
+    }
+
+    Response:
+    {
+        "domain_id": "healthcare_drug_interactions_v1",
+        "status": "active",
+        "created_at": "2025-01-05T10:30:00Z",
+        "validation": {
+            "valid": true,
+            "warnings": []
+        }
+    }
+    """
+    pass
+```
+
+#### List Domains
+
+```python
+@app.get("/api/v1/domains")
+async def list_domains(
+    skip: int = 0,
+    limit: int = 100,
+    active_only: bool = True
+) -> DomainsListResponse:
+    """
+    List all registered domains
+
+    Response:
+    {
+        "domains": [
+            {
+                "domain_id": "mechanical_engineering_v1",
+                "name": "Mechanical Engineering",
+                "version": "1.0.0",
+                "status": "active",
+                "rule_count": 1234,
+                "created_at": "2025-01-01T00:00:00Z"
+            },
+            {
+                "domain_id": "healthcare_drug_interactions_v1",
+                "name": "Healthcare - Drug Interactions",
+                "version": "1.0.0",
+                "status": "active",
+                "rule_count": 567,
+                "created_at": "2025-01-03T12:00:00Z"
+            }
+        ],
+        "total": 2,
+        "skip": 0,
+        "limit": 100
+    }
+    """
+    pass
+```
+
+#### Get Domain
+
+```python
+@app.get("/api/v1/domains/{domain_id}")
+async def get_domain(domain_id: str) -> DomainDetailResponse:
+    """
+    Retrieve full domain definition
+
+    Response: Complete domain JSON schema (entity_types, properties, etc.)
+    """
+    pass
+```
+
+#### Update Domain
+
+```python
+@app.put("/api/v1/domains/{domain_id}")
+async def update_domain(
+    domain_id: str,
+    updates: DomainUpdate
+) -> DomainResponse:
+    """
+    Update domain definition (creates new version)
+
+    Note: Updates create new version to maintain rule compatibility.
+    Existing rules remain bound to their original domain version.
+    """
+    pass
+```
+
+#### Delete Domain
+
+```python
+@app.delete("/api/v1/domains/{domain_id}")
+async def delete_domain(
+    domain_id: str,
+    force: bool = False
+) -> DeleteResponse:
+    """
+    Delete a domain and all associated rules
+
+    Query Parameters:
+        force: If false (default), prevents deletion if rules exist.
+               If true, cascades deletion to all rules.
+
+    Response:
+    {
+        "domain_id": "healthcare_drug_interactions_v1",
+        "deleted": true,
+        "rules_deleted": 567,
+        "fragments_deleted": 2340
+    }
+    """
+    pass
+```
+
+### 8.2 Rule Ingestion API (Domain-Scoped)
+
+All rule operations are scoped to a specific domain.
+
+#### Ingest Rule
+
+```python
+@app.post("/api/v1/domains/{domain_id}/rules/ingest")
+async def ingest_rule(
+    domain_id: str,
+    rule: RuleInput
+) -> IngestionResponse:
+    """
+    Ingest a new rule into the specified domain
+
+    Path Parameters:
+        domain_id: Target domain identifier
+
+    Request Body:
+    {
+        "text": "Warfarin and aspirin increase bleeding risk",
+        "priority": "high",
+        "metadata": {
+            "source": "FDA guidelines",
+            "severity": "major",
+            "evidence_level": "A"
+        }
+    }
+
+    Response:
+    {
+        "rule_id": "uuid",
+        "domain_id": "healthcare_drug_interactions_v1",
+        "status": "success|pending_review|failed",
+        "chunks_created": 1,
+        "fragments_generated": 2,
+        "new_terms": ["warfarin", "aspirin", "bleeding_risk"],
+        "validation_issues": [],
+        "processing_time_ms": 1234
+    }
+    """
+    pass
+```
+
+#### List Domain Rules
+
+```python
+@app.get("/api/v1/domains/{domain_id}/rules")
+async def list_rules(
+    domain_id: str,
+    skip: int = 0,
+    limit: int = 100,
+    status: Optional[str] = None
+) -> RulesListResponse:
+    """
+    List all rules for a domain
+
+    Response:
+    {
+        "rules": [
+            {
+                "rule_id": "uuid",
+                "text": "Warfarin and aspirin increase bleeding risk",
+                "status": "active",
+                "created_at": "2025-01-05T10:30:00Z",
+                "fragments_count": 2
+            }
+        ],
+        "total": 567,
+        "domain_id": "healthcare_drug_interactions_v1"
+    }
+    """
+    pass
+```
+
+#### Get Rule
+
+```python
+@app.get("/api/v1/domains/{domain_id}/rules/{rule_id}")
+async def get_rule(domain_id: str, rule_id: str) -> RuleDetailResponse:
+    """
+    Retrieve specific rule with all fragments
+
+    Response includes rule text, SMT fragments, metadata, validation status
+    """
+    pass
+```
+
+#### Update Rule
+
+```python
+@app.put("/api/v1/domains/{domain_id}/rules/{rule_id}")
+async def update_rule(
+    domain_id: str,
+    rule_id: str,
+    updates: RuleUpdate
+) -> UpdateResponse:
+    """
+    Update rule text (triggers re-processing through ingestion pipeline)
+    """
+    pass
+```
+
+#### Delete Rule
+
+```python
+@app.delete("/api/v1/domains/{domain_id}/rules/{rule_id}")
+async def delete_rule(domain_id: str, rule_id: str) -> DeleteResponse:
+    """Delete rule and all associated fragments from domain"""
+    pass
+```
+
+### 8.3 Query API (Domain-Scoped)
+
+All queries are scoped to a specific domain. Generic "verify" endpoint replaces domain-specific "check_compatibility".
+
+#### Verify Query
+
+```python
+@app.post("/api/v1/domains/{domain_id}/query/verify")
+async def verify_query(
+    domain_id: str,
+    query: GenericQuery
+) -> VerificationResponse:
+    """
+    Verify if entities/constraints are satisfiable within domain rules
+
+    Path Parameters:
+        domain_id: Domain to query against
+
+    Request Body (Mechanical Engineering Example):
+    {
+        "entities": {
+            "bolt": {"material": "steel", "diameter": 10},
+            "plate": {"material": "aluminum", "thickness": 5}
+        },
+        "context": {
+            "temperature": 200,
+            "humidity": 0.5
+        },
+        "question": "compatible?"
+    }
+
+    Request Body (Healthcare Example):
+    {
+        "entities": {
+            "patient": {"age": 65, "weight_kg": 70},
+            "medication_1": {"drug": "warfarin", "dosage_mg": 5},
+            "medication_2": {"drug": "aspirin", "dosage_mg": 81}
+        },
+        "context": {
+            "kidney_function": "normal"
+        },
+        "question": "safe?"
+    }
+
+    Response:
+    {
+        "satisfiable": true|false,
+        "confidence": 0.95,
+        "domain_id": "healthcare_drug_interactions_v1",
+        "explanation": "These medications have a documented contraindication...",
+        "details": {
+            "constraints_checked": 15,
+            "sat_result": "SAT|UNSAT",
+            "model": {...},  // If SAT
+            "conflicts": [   // If UNSAT
+                {
+                    "rule_id": "uuid",
+                    "rule_text": "Warfarin and aspirin increase bleeding risk",
+                    "conflict_type": "logical_impossibility"
+                }
+            ]
+        },
+        "suggestions": [
+            {
+                "type": "medication_change|parameter_change|monitoring",
+                "description": "Consider alternative anticoagulant",
+                "specifics": "Consult prescriber about switching...",
+                "feasibility": 0.8
+            }
+        ],
+        "processing_time_ms": 234
+    }
+    """
+    pass
+```
+
+#### Find Satisfying Solutions
+
+```python
+@app.post("/api/v1/domains/{domain_id}/query/find_satisfying")
+async def find_satisfying(
+    domain_id: str,
+    query: FindSolutionsQuery
+) -> SolutionsResponse:
+    """
+    Find all solutions satisfying partial specification
+
+    Path Parameters:
+        domain_id: Domain to search within
+
+    Request Body:
+    {
+        "fixed_entities": {
+            "bolt": {"material": "steel"}
+        },
+        "variable_entities": [
+            "plate_material",
+            "washer_material"
+        ],
+        "context": {
+            "temperature": 200
+        },
+        "optimize": "cost|strength|weight",
+        "max_results": 10
+    }
+
+    Response:
+    {
+        "domain_id": "mechanical_engineering_v1",
+        "solutions": [
+            {
+                "entities": {
+                    "bolt": {"material": "steel"},
+                    "plate": {"material": "steel"},
+                    "washer": {"material": "brass"}
+                },
+                "score": 0.95,
+                "properties": {
+                    "total_cost": 50,
+                    "strength": 600
+                },
+                "satisfiable": true
+            }
+        ],
+        "total_found": 5,
+        "processing_time_ms": 567
+    }
+    """
+    pass
+```
+
+### 8.4 Domain Registry Introspection API
+
+Clients can discover domain schemas dynamically, enabling generic UI and validation.
+
+#### Get Domain Entities
+
+```python
+@app.get("/api/v1/domains/{domain_id}/registry/entities")
+async def get_domain_entities(domain_id: str) -> EntitiesResponse:
+    """
+    Get all entity types defined in domain
+
+    Response:
+    {
+        "domain_id": "mechanical_engineering_v1",
+        "entity_types": {
+            "materials": {
+                "canonical_var": "material",
+                "aliases": ["metal", "substance"],
+                "instances": ["steel", "aluminum", "brass"]
+            },
+            "parts": {
+                "canonical_var": "part",
+                "instances": ["bolt", "plate", "washer"]
+            }
+        }
+    }
+    """
+    pass
+```
+
+#### Get Domain Properties
+
+```python
+@app.get("/api/v1/domains/{domain_id}/registry/properties")
+async def get_domain_properties(domain_id: str) -> PropertiesResponse:
+    """
+    Get all properties defined in domain
+
+    Response:
+    {
+        "domain_id": "mechanical_engineering_v1",
+        "properties": {
+            "thermal_expansion_coef": {
+                "canonical_var": "thermal_expansion_coef",
+                "unit": "μm/m/°C",
+                "smt_type": "Real",
+                "domain": [0, 100]
+            },
+            "tensile_strength": {
+                "canonical_var": "tensile_strength",
+                "unit": "MPa",
+                "smt_type": "Real",
+                "domain": [0, 5000]
+            }
+        }
+    }
+    """
+    pass
+```
+
+#### Validate Entity Name
+
+```python
+@app.get("/api/v1/domains/{domain_id}/registry/validate_name")
+async def validate_name(
+    domain_id: str,
+    name: str,
+    type: str = "entity|property"
+) -> ValidationResponse:
+    """
+    Check if a name is valid according to domain naming conventions
+
+    Query Parameters:
+        domain_id: Target domain
+        name: Variable name to validate
+        type: What kind of name (entity, property)
+
+    Response:
+    {
+        "valid": true|false,
+        "canonical_form": "bolt_material",
+        "suggestions": ["material", "mat"],
+        "errors": []
+    }
+    """
+    pass
+```
+
+#### Get Domain Schema
+
+```python
+@app.get("/api/v1/domains/{domain_id}/registry/schema")
+async def get_domain_schema(domain_id: str) -> DomainSchemaResponse:
+    """
+    Get complete JSON schema for domain (entities + properties + naming conventions)
+
+    Useful for code generation, IDE autocomplete, and validation
+    """
+    pass
+```
+
+### 8.5 Legacy Endpoints (Deprecated)
+
+For backward compatibility with v1.0 single-domain architecture. **These endpoints will be removed in v3.0.**
+
+All legacy endpoints redirect to the default `mechanical_engineering_v1` domain.
 
 ```python
 @app.post("/api/v1/rules/ingest")
-async def ingest_rule(rule: RuleInput) -> IngestionResponse:
+async def legacy_ingest_rule(rule: RuleInput) -> IngestionResponse:
     """
-    Ingest a new rule into the system
-    
-    Args:
-        rule: {
-            "text": "Steel expands at 11 μm/m/°C",
-            "domain": "mechanical_engineering",
-            "priority": "high",
-            "metadata": {...}
-        }
-    
-    Returns:
-        {
-            "rule_id": "uuid",
-            "status": "success|pending_review|failed",
-            "chunks_created": 1,
-            "fragments_generated": 3,
-            "new_terms": ["steel", "thermal_expansion"],
-            "validation_issues": [],
-            "processing_time_ms": 1234
-        }
+    DEPRECATED: Use /api/v1/domains/{domain_id}/rules/ingest
+
+    Redirects to mechanical_engineering_v1 domain for backward compatibility.
+    Will be removed in v3.0 (2026-01-01).
+
+    Response includes deprecation warning:
+    {
+        "rule_id": "uuid",
+        "domain_id": "mechanical_engineering_v1",
+        "warnings": ["This endpoint is deprecated. Use domain-scoped API."],
+        ...
+    }
     """
-    pass
+    return await ingest_rule("mechanical_engineering_v1", rule)
 
-@app.post("/api/v1/rules/batch_ingest")
-async def batch_ingest(rules: List[RuleInput]) -> BatchIngestionResponse:
-    """Ingest multiple rules in batch"""
-    pass
-
-@app.get("/api/v1/rules/{rule_id}")
-async def get_rule(rule_id: str) -> RuleResponse:
-    """Retrieve a specific rule and its SMT fragments"""
-    pass
-
-@app.put("/api/v1/rules/{rule_id}")
-async def update_rule(rule_id: str, updates: RuleUpdate) -> UpdateResponse:
-    """Update an existing rule (triggers re-processing)"""
-    pass
-
-@app.delete("/api/v1/rules/{rule_id}")
-async def delete_rule(rule_id: str) -> DeleteResponse:
-    """Delete a rule and its fragments from the system"""
-    pass
-```
-
-### 8.2 Query API
-
-```python
 @app.post("/api/v1/query/check_compatibility")
-async def check_compatibility(query: CompatibilityQuery) -> CompatibilityResponse:
+async def legacy_check_compatibility(query: CompatibilityQuery) -> CompatibilityResponse:
     """
-    Check if a combination of materials/parts is compatible
-    
-    Args:
-        query: {
-            "entities": {
-                "bolt": {"material": "steel", "diameter": 10},
-                "plate": {"material": "aluminum", "thickness": 5}
-            },
-            "environment": {
-                "temperature": 200,
-                "humidity": 0.5
-            },
-            "constraints": {
-                "max_cost": 100,
-                "min_strength": 500
-            }
-        }
-    
-    Returns:
-        {
-            "compatible": true|false,
-            "confidence": 0.95,
-            "explanation": "Steel and aluminum are compatible at 200°C...",
-            "details": {
-                "constraints_checked": 15,
-                "sat_result": "SAT|UNSAT",
-                "model": {...}  // If SAT
-                "conflicts": [...]  // If UNSAT
-            },
-            "suggestions": [
-                {
-                    "type": "substitution|parameter_change|addition",
-                    "description": "...",
-                    "feasibility": 0.8
-                }
-            ],
-            "processing_time_ms": 234
-        }
-    """
-    pass
+    DEPRECATED: Use /api/v1/domains/{domain_id}/query/verify
 
-@app.post("/api/v1/query/find_compatible")
-async def find_compatible(query: FindCompatibleQuery) -> List[Combination]:
+    Redirects to mechanical_engineering_v1 domain.
+    Converts old "environment" field to "context".
+    Will be removed in v3.0 (2026-01-01).
     """
-    Find all compatible combinations given partial specification
-    
-    Args:
-        query: {
-            "fixed": {"bolt_material": "steel"},
-            "variable": ["plate_material", "washer_material"],
-            "environment": {"temperature": 200},
-            "optimize": "cost|strength|weight"
-        }
-    
-    Returns:
-        [
-            {
-                "combination": {"plate": "steel", "washer": "brass"},
-                "score": 0.95,
-                "properties": {...}
-            }
-        ]
+    # Convert old format to new
+    generic_query = GenericQuery(
+        entities=query.entities,
+        context=query.environment,  # Renamed field
+        question="compatible?"
+    )
+    return await verify_query("mechanical_engineering_v1", generic_query)
+
+@app.get("/api/v1/registry/entities")
+async def legacy_get_entities() -> EntitiesResponse:
     """
-    pass
+    DEPRECATED: Use /api/v1/domains/{domain_id}/registry/entities
+
+    Returns entities for mechanical_engineering_v1 domain.
+    Will be removed in v3.0.
+    """
+    return await get_domain_entities("mechanical_engineering_v1")
 ```
 
-### 8.3 Registry API
+**Migration Guide:**
+
+| v1.0 Endpoint (Deprecated) | v2.0 Endpoint (Use This) |
+|----------------------------|--------------------------|
+| `POST /api/v1/rules/ingest` | `POST /api/v1/domains/{domain_id}/rules/ingest` |
+| `POST /api/v1/query/check_compatibility` | `POST /api/v1/domains/{domain_id}/query/verify` |
+| `GET /api/v1/registry/entities` | `GET /api/v1/domains/{domain_id}/registry/entities` |
+| `GET /api/v1/registry/properties` | `GET /api/v1/domains/{domain_id}/registry/properties` |
+
+**Breaking Changes in v2.0:**
+- All endpoints require `domain_id` path parameter
+- `environment` renamed to `context` in query structure
+- `check_compatibility` renamed to `verify` (more generic)
+- `CompatibilityQuery` → `GenericQuery` model
+- `CompatibilityResponse` → `VerificationResponse` model
+
+### 8.6 Authentication & Authorization
+
+Domain-level access control enforces isolation:
 
 ```python
-@app.get("/api/v1/registry/entities")
-async def get_entities() -> EntitiesResponse:
-    """Get all registered entities"""
-    pass
+class DomainPermission:
+    """
+    Users can have different permissions per domain
+    """
+    user_id: str
+    domain_id: str
+    permissions: List[str]  # ["read", "write", "admin"]
 
-@app.get("/api/v1/registry/properties")
-async def get_properties() -> PropertiesResponse:
-    """Get all registered properties"""
-    pass
+# Example: User can read mechanical_engineering but write to healthcare
+{
+    "user_id": "user_123",
+    "permissions": [
+        {
+            "domain_id": "mechanical_engineering_v1",
+            "role": "reader"
+        },
+        {
+            "domain_id": "healthcare_drug_interactions_v1",
+            "role": "editor"
+        }
+    ]
+}
+```
 
-@app.post("/api/v1/registry/entities")
-async def add_entity(entity: EntityDefinition) -> AddEntityResponse:
-    """Add a new entity to the registry"""
-    pass
+**API Key Scoping:**
+```python
+# API keys can be scoped to specific domains
+{
+    "api_key": "sk_...",
+    "scopes": ["mechanical_engineering_v1", "finance_compliance_v1"],
+    "rate_limit_per_domain": 1000  # requests/hour per domain
+}
+```
 
-@app.post("/api/v1/registry/properties")
-async def add_property(prop: PropertyDefinition) -> AddPropertyResponse:
-    """Add a new property to the registry"""
-    pass
+**Rate Limiting:**
+- Per-domain rate limits prevent one domain from impacting others
+- Separate quotas for ingestion, queries, and registry operations
+- Fair usage across multi-tenant environment
 
-@app.get("/api/v1/registry/validate_name")
-async def validate_name(name: str) -> ValidationResponse:
-    """Check if a variable name is valid according to registry"""
-    pass
+### 8.7 OpenAPI Specification
+
+The complete API is documented using OpenAPI 3.0:
+
+```yaml
+openapi: 3.0.0
+info:
+  title: Multi-Domain Constraint Solver API
+  version: 2.0.0
+  description: Domain-independent SMT-based constraint solving
+
+servers:
+  - url: https://api.example.com/api/v1
+
+paths:
+  /domains:
+    post:
+      summary: Create new domain
+      requestBody:
+        $ref: '#/components/schemas/DomainDefinition'
+      responses:
+        '201':
+          description: Domain created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DomainResponse'
+
+  /domains/{domain_id}/query/verify:
+    post:
+      summary: Verify query against domain rules
+      parameters:
+        - name: domain_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        $ref: '#/components/schemas/GenericQuery'
+      responses:
+        '200':
+          description: Verification result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerificationResponse'
+
+components:
+  schemas:
+    GenericQuery:
+      type: object
+      required: [entities, question]
+      properties:
+        entities:
+          type: object
+          additionalProperties:
+            type: object
+        context:
+          type: object
+        question:
+          type: string
+```
+
+**Generation:** OpenAPI spec is auto-generated from FastAPI route definitions using:
+```bash
+python -m app.main generate-openapi > openapi.yaml
 ```
 
 -----
