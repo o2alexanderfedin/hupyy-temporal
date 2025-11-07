@@ -45,3 +45,4 @@ reports/*.pdf
 
 # Backup files
 *.backup
+.env

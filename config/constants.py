@@ -151,7 +151,21 @@ def get_preferences_file() -> Path:
     return get_config_path() / "user_preferences.json"
 
 def get_cvc5_path() -> Path:
-    """Get the cvc5 binary path."""
+    """Get the cvc5 binary path.
+
+    Checks multiple locations in order:
+    1. /usr/bin/cvc5 (Debian package in Docker container)
+    2. ./bin/cvc5 (local development binary on macOS)
+
+    Returns:
+        Path to cvc5 binary
+    """
+    # Check system-installed cvc5 first (Docker container with Debian package)
+    system_cvc5 = Path("/usr/bin/cvc5")
+    if system_cvc5.exists():
+        return system_cvc5
+
+    # Fall back to local binary (development on macOS)
     return get_root_path() / "bin" / "cvc5"
 
 def get_reports_dir() -> Path:
