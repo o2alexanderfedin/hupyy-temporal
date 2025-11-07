@@ -312,6 +312,106 @@ ssl_certificate_key /etc/nginx/ssl/key.pem;
 
 ---
 
+## Logging and Monitoring
+
+### Log Locations
+
+The application maintains two types of logs:
+
+1. **Docker Container Logs** - Streamlit and container stdout/stderr
+2. **Application Logs** - Detailed application logs with timestamps
+
+### Viewing Logs
+
+#### Quick Log Helper Script
+
+```bash
+# View recent Docker logs
+./scripts/logs.sh
+
+# Follow logs in real-time
+./scripts/logs.sh follow
+
+# View last 200 lines
+./scripts/logs.sh tail 200
+
+# View today's application log
+./scripts/logs.sh today
+
+# List all available logs
+./scripts/logs.sh list
+
+# Clean old logs (keeps last 7 days)
+./scripts/logs.sh clean
+```
+
+#### Manual Log Commands
+
+```bash
+# View all Docker logs
+docker compose logs
+
+# Follow Docker logs in real-time
+docker compose logs -f
+
+# View last 100 lines
+docker compose logs --tail=100
+
+# View application logs (mounted volume)
+tail -f ./logs/hupyy_$(date +%Y%m%d).log
+
+# View all application logs
+ls -lh ./logs/
+
+# Search logs for errors
+docker compose logs | grep ERROR
+```
+
+### Log Configuration
+
+The Docker container uses JSON file logging with automatic rotation:
+
+```yaml
+logging:
+  driver: "json-file"
+  options:
+    max-size: "10m"      # Maximum size per log file
+    max-file: "5"        # Keep 5 rotated files
+    tag: "{{.Name}}/{{.ID}}"
+```
+
+### Log Files
+
+| Type | Location | Description |
+|------|----------|-------------|
+| Docker Logs | `/var/lib/docker/containers/` | Container stdout/stderr |
+| App Logs | `./logs/hupyy_YYYYMMDD.log` | Daily application logs |
+| Reports | `./reports/*.pdf` | Generated PDF reports |
+
+### Monitoring Container Health
+
+```bash
+# Check container health status
+docker inspect --format='{{.State.Health.Status}}' hupyy-temporal
+
+# View detailed health check logs
+docker inspect hupyy-temporal | jq '.[0].State.Health'
+
+# Monitor resource usage
+docker stats hupyy-temporal
+
+# Check specific health endpoint
+curl http://localhost:8501/_stcore/health
+```
+
+### Log Retention
+
+- **Docker logs**: Automatically rotated (max 50MB total, 5 files)
+- **Application logs**: Daily files, manual cleanup recommended
+- **Cleanup script**: `./scripts/logs.sh clean` (removes logs older than 7 days)
+
+---
+
 ## Troubleshooting
 
 ### Container Won't Start
