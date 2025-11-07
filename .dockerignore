@@ -1,0 +1,113 @@
+# Docker ignore file for Hupyy Temporal
+# Excludes unnecessary files from Docker build context for faster builds
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.vs/
+*.code-workspace
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Documentation (not needed in runtime)
+docs/
+*.md
+!README.md
+
+# Sprint planning (not needed in runtime)
+sprints/
+
+# Test results and logs (generated output)
+eval/*_results.jsonl
+eval/*_test.log
+eval/comparison_report.md
+eval/comparison_report.csv
+eval/test.pid
+
+# Runtime test metadata
+**/run_metadata.json
+
+# Playwright test results
+test-results/
+.playwright-mcp/
+
+# Application logs (will be recreated in container)
+logs/*.log
+
+# Generated reports (will be created by container)
+reports/*.pdf
+
+# Backup files
+*.backup
+*.bak
+*~
+
+# Development and testing
+tests/
+pytest.ini
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+Jenkinsfile
+
+# Docker files (don't copy into image)
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Node modules (if any)
+node_modules/
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+
+# Cache directories
+.cache/
+.mypy_cache/
+.ruff_cache/
+
+# Environment files with secrets
+.env.local
+.env.*.local
+*.key
+*.pem
+*.crt
+
+# Large data files (add specific paths if needed)
+# data/large_dataset/
