@@ -22,9 +22,9 @@ services:
       # Optional: Set timezone
       - TZ=UTC
 
-      # Optional: Claude API configuration (set these in .env file)
-      # - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      # - CLAUDE_MODEL=${CLAUDE_MODEL:-claude-sonnet-3-5-20241022}
+      # Claude API configuration (REQUIRED - set in .env file)
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - CLAUDE_MODEL=${CLAUDE_MODEL:-claude-sonnet-3-5-20241022}
 
     volumes:
       # Persist generated reports

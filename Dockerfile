@@ -26,11 +26,21 @@ RUN pip install --no-cache-dir --user -r requirements.txt
 # ============================================================================
 FROM python:3.11-slim
 
-# Install runtime dependencies only
+# Install runtime dependencies (Python, Node.js, system libs)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     libgmp10 \
+    curl \
+    gnupg \
+    && mkdir -p /etc/apt/keyrings \
+    && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
+    && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends nodejs \
     && rm -rf /var/lib/apt/lists/*
+
+# Install Claude CLI globally
+RUN npm install -g @anthropic-ai/claude-code@^2.0.35
 
 # Create non-root user for security
 RUN useradd -m -u 1000 -s /bin/bash hupyy && \
@@ -56,8 +66,8 @@ RUN mkdir -p /app/reports /app/logs && \
 # Switch to non-root user
 USER hupyy
 
-# Add local bin to PATH
-ENV PATH=/home/hupyy/.local/bin:$PATH
+# Add local bin and npm global bin to PATH
+ENV PATH=/home/hupyy/.local/bin:/usr/local/bin:$PATH
 
 # Set environment variables for Streamlit
 ENV STREAMLIT_SERVER_HEADLESS=true \
