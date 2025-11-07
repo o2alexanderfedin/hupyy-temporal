@@ -355,12 +355,12 @@ Tests are configured to run in GitHub Actions (see `.github/workflows/playwright
 - [Playwright Python Documentation](https://playwright.dev/python/)
 - [pytest-playwright Plugin](https://github.com/microsoft/playwright-pytest)
 - [Streamlit Testing Guide](https://docs.streamlit.io/develop/concepts/app-testing)
-- [Playwright Selectors Guide](PLAYWRIGHT_SELECTORS_GUIDE.md) (project-specific)
+- [Playwright Selectors Guide](../guides/PLAYWRIGHT_SELECTORS_GUIDE.md) (project-specific)
 
 ## Support
 
 For issues or questions:
 1. Check troubleshooting section above
 2. Review Playwright documentation
-3. Check project PLAYWRIGHT_SELECTORS_GUIDE.md
+3. Check project [PLAYWRIGHT_SELECTORS_GUIDE.md](../guides/PLAYWRIGHT_SELECTORS_GUIDE.md)
 4. Review test examples in this directory
