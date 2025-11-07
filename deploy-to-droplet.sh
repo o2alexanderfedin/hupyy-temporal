@@ -129,4 +129,3 @@ echo "Your Droplet IP: $(curl -s ifconfig.me)"
 echo "Application will be available at: http://$(curl -s ifconfig.me):8501"
 echo ""
 echo "=================================================="
-EOF
