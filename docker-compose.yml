@@ -22,8 +22,9 @@ services:
       # Optional: Set timezone
       - TZ=UTC
 
-      # Claude API configuration (REQUIRED - set in .env file)
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      # Claude Subscription configuration (REQUIRED - set in .env file)
+      # Using OAuth token from subscription (much cheaper than API key!)
+      - CLAUDE_CODE_OAUTH_TOKEN=${CLAUDE_CODE_OAUTH_TOKEN}
       - CLAUDE_MODEL=${CLAUDE_MODEL:-claude-sonnet-3-5-20241022}
 
     volumes:
