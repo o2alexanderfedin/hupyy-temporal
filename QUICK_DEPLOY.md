@@ -4,7 +4,7 @@ Your Droplet is ready! Here's how to deploy in 5 minutes:
 
 ## Droplet Information
 
-- **IP Address**: `209.38.65.54`
+- **IP Address**: `143.198.132.146`
 - **Name**: hupyy-temporal-prod
 - **Size**: 1GB RAM, 1 CPU ($6/month)
 - **Region**: San Francisco (sfo3)
@@ -16,7 +16,7 @@ Digital Ocean has emailed your root password to your account email. Check your i
 ## Step 2: SSH into Droplet
 
 ```bash
-ssh root@209.38.65.54
+ssh root@143.198.132.146
 # Enter the password from the email when prompted
 ```
 
@@ -43,10 +43,10 @@ From your local machine, copy the code to the Droplet:
 cd /Users/alexanderfedin/Projects/hapyy/cofounder/hupyy-temporal
 
 # Copy all files (will prompt for password)
-scp -r $(ls -A | grep -v '.git\|node_modules\|__pycache__\|*.pyc\|.DS_Store\|logs\|reports') root@209.38.65.54:/opt/hupyy-temporal/
+scp -r $(ls -A | grep -v '.git\|node_modules\|__pycache__\|*.pyc\|.DS_Store\|logs\|reports') root@143.198.132.146:/opt/hupyy-temporal/
 
 # Or use rsync (better for large transfers):
-rsync -avz --exclude='.git' --exclude='node_modules' --exclude='__pycache__' --exclude='*.pyc' --exclude='.DS_Store' --exclude='logs/*' --exclude='reports/*' . root@209.38.65.54:/opt/hupyy-temporal/
+rsync -avz --exclude='.git' --exclude='node_modules' --exclude='__pycache__' --exclude='*.pyc' --exclude='.DS_Store' --exclude='logs/*' --exclude='reports/*' . root@143.198.132.146:/opt/hupyy-temporal/
 ```
 
 ## Step 5: Build and Run
@@ -71,7 +71,7 @@ docker compose logs -f
 
 Open in your browser:
 ```
-http://209.38.65.54:8501
+http://143.198.132.146:8501
 ```
 
 ## Quick Commands
@@ -100,7 +100,7 @@ docker compose up -d
 ### Can't connect via SSH?
 - Wait 1-2 minutes for Droplet to fully initialize
 - Check your email for the root password
-- Try: `ssh -v root@209.38.65.54` for verbose output
+- Try: `ssh -v root@143.198.132.146` for verbose output
 
 ### Application not accessible?
 ```bash
@@ -134,7 +134,7 @@ Once deployed:
    ```
 
 2. **Add SSL/HTTPS** (optional):
-   - Point a domain to 209.38.65.54
+   - Point a domain to 143.198.132.146
    - Follow SSL setup in DIGITALOCEAN_DEPLOYMENT.md
 
 3. **Enable automated backups** via Digital Ocean dashboard
@@ -154,7 +154,7 @@ If you want to deploy everything automatically:
 
 ```bash
 # From your Mac, run:
-./scripts/deploy-full.sh 209.38.65.54
+./scripts/deploy-full.sh 143.198.132.146
 ```
 
 (This script will be created if you need it)
