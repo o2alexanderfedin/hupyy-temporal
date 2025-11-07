@@ -26,7 +26,8 @@ RUN pip install --no-cache-dir --user -r requirements.txt
 # ============================================================================
 FROM python:3.11-slim
 
-# Install runtime dependencies (Python, Node.js, system libs)
+# Install runtime dependencies (Python, Node.js, cvc5, system libs)
+# Note: cvc5 is installed from Debian repositories for ARM64 compatibility
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     libgmp10 \
@@ -36,7 +37,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
     && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list \
     && apt-get update \
-    && apt-get install -y --no-install-recommends nodejs \
+    && apt-get install -y --no-install-recommends nodejs cvc5 \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Claude CLI globally
@@ -53,11 +54,8 @@ WORKDIR /app
 # Copy Python dependencies from builder
 COPY --from=builder --chown=hupyy:hupyy /root/.local /home/hupyy/.local
 
-# Copy application code
+# Copy application code (excluding bin/ directory which contains macOS binary)
 COPY --chown=hupyy:hupyy . .
-
-# Ensure bin/cvc5 has execute permissions
-RUN chmod +x /app/bin/cvc5 2>/dev/null || true
 
 # Create reports and logs directories with correct permissions
 RUN mkdir -p /app/reports /app/logs && \
@@ -77,9 +75,8 @@ ENV STREAMLIT_SERVER_HEADLESS=true \
     STREAMLIT_SERVER_ENABLECORS=false \
     STREAMLIT_SERVER_ENABLEXSRFPROTECTION=true
 
-# Set library paths for cvc5
-ENV LD_LIBRARY_PATH=/app/lib:$LD_LIBRARY_PATH \
-    DYLD_LIBRARY_PATH=/app/lib:$DYLD_LIBRARY_PATH
+# Note: cvc5 from Debian package is at /usr/bin/cvc5 (already in PATH)
+# No custom library paths needed
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \

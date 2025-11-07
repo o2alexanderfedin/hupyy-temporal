@@ -97,6 +97,11 @@ dist/
 build/
 *.egg-info/
 
+# Binaries (macOS-specific, use Debian package in container)
+bin/
+lib/
+include/
+
 # Cache directories
 .cache/
 .mypy_cache/
