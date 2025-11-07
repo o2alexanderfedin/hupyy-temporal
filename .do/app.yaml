@@ -6,7 +6,7 @@ services:
     github:
       repo: o2alexanderfedin/hupyy-temporal
       branch: develop
-      deploy_on_push: true
+      deploy_on_push: false
 
     dockerfile_path: Dockerfile
 
