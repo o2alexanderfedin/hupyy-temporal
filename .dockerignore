@@ -36,6 +36,10 @@ desktop.ini
 docs/
 *.md
 !README.md
+!data/**/*.md
+
+# Scripts (development tools, not needed in runtime)
+scripts/
 
 # Sprint planning (not needed in runtime)
 sprints/
