@@ -1512,6 +1512,10 @@ if 'last_result' in st.session_state:
                 # Display explanation in a nice box
                 st.markdown(f"```\n{explanation}\n```")
 
+        # Store download data in session state to persist across reruns
+        st.session_state['smtlib_code'] = smtlib_code
+        st.session_state['final_stdout'] = final_stdout
+
         # Download buttons
         st.markdown("---")
         st.subheader("📥 Downloads & Reports")
@@ -1521,7 +1525,7 @@ if 'last_result' in st.session_state:
         with col1:
             st.download_button(
                 "Download SMT-LIB code",
-                smtlib_code.encode("utf-8"),
+                st.session_state.get('smtlib_code', '').encode("utf-8"),
                 file_name="constraints.smt2",
                 mime="text/plain",
                 key="download_smtlib"
@@ -1530,7 +1534,7 @@ if 'last_result' in st.session_state:
         with col2:
             st.download_button(
                 "Download raw output",
-                final_stdout.encode("utf-8"),
+                st.session_state.get('final_stdout', '').encode("utf-8"),
                 file_name="output.txt",
                 mime="text/plain",
                 key="download_raw_output"
