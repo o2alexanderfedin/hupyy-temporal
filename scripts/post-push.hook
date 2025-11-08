@@ -1,0 +1,25 @@
+#!/bin/bash
+
+# Post-push hook to remind about CI/CD monitoring for releases
+
+# Check if we're pushing tags
+while read local_ref local_sha remote_ref remote_sha
+do
+    if [[ $remote_ref == refs/tags/* ]]; then
+        TAG_NAME=$(echo $remote_ref | sed 's/refs\/tags\///')
+        echo ""
+        echo "=========================================="
+        echo "⚠️  REMINDER: Release $TAG_NAME pushed!"
+        echo "=========================================="
+        echo ""
+        echo "Please monitor CI/CD pipeline until deployment completes:"
+        echo "  1. Check GitHub Actions: gh run list --limit 5"
+        echo "  2. Watch deployment status: gh run watch"
+        echo "  3. Verify deployment health after completion"
+        echo ""
+        echo "=========================================="
+        echo ""
+    fi
+done
+
+exit 0
