@@ -2,7 +2,11 @@
 
 ## Overview
 
-This project uses a fully automated CI/CD pipeline that deploys to Digital Ocean App Platform. Every push to the `develop` branch automatically triggers testing, building, and deployment.
+This project uses a release-based CI/CD pipeline that deploys to Digital Ocean App Platform.
+
+**CI (Continuous Integration)**: Runs automatically on every push to `develop` or `main` branches, performing code quality checks and building Docker images.
+
+**CD (Continuous Deployment)**: Triggers only when you create and publish a GitHub release, ensuring deployments happen at controlled times.
 
 ## Pipeline Architecture
 
@@ -12,21 +16,64 @@ This project uses a fully automated CI/CD pipeline that deploys to Digital Ocean
 │  to develop     │
 └────────┬────────┘
          │
-         ├─────────────────────────────────┐
-         │                                 │
-         v                                 v
-┌─────────────────┐              ┌─────────────────┐
-│ GitHub Actions  │              │ DO App Platform │
-│                 │              │                 │
-│ • Lint Code     │              │ • Pull Repo     │
-│ • Type Check    │              │ • Build Docker  │
-│ • Build Docker  │              │ • Deploy        │
-│ • Run Tests     │              │ • Health Check  │
-└────────┬────────┘              └────────┬────────┘
-         │                                │
-         v                                v
-   ✅ Quality Gates               🚀 Production
+         v
+┌─────────────────┐
+│ GitHub Actions  │
+│     (CI)        │
+│ • Lint Code     │
+│ • Type Check    │
+│ • Build Docker  │
+│ • Run Tests     │
+└────────┬────────┘
+         │
+         v
+   ✅ Quality Gates
+         │
+         │  Developer creates release
+         │  (git tag + push)
+         v
+┌─────────────────┐
+│ GitHub Actions  │
+│     (CD)        │
+│ • Get App ID    │
+│ • Trigger Deploy│
+└────────┬────────┘
+         │
+         v
+┌─────────────────┐
+│ DO App Platform │
+│                 │
+│ • Pull Repo     │
+│ • Build Docker  │
+│ • Deploy        │
+│ • Health Check  │
+└────────┬────────┘
+         │
+         v
+   🚀 Production
 ```
+
+## Prerequisites
+
+### Required GitHub Secret
+
+For the deployment workflow to function, you must configure a Digital Ocean API token as a GitHub secret:
+
+1. **Generate Digital Ocean API Token**:
+   - Visit: https://cloud.digitalocean.com/account/api/tokens
+   - Click "Generate New Token"
+   - Name: `GitHub Actions Deployment`
+   - Scopes: Read and Write access
+   - Copy the generated token
+
+2. **Add to GitHub Secrets**:
+   - Visit: https://github.com/o2alexanderfedin/hupyy-temporal/settings/secrets/actions
+   - Click "New repository secret"
+   - Name: `DIGITALOCEAN_ACCESS_TOKEN`
+   - Value: Paste the API token from step 1
+   - Click "Add secret"
+
+**Note**: Without this secret, the deployment job will fail when a release is published.
 
 ## Components
 
@@ -61,7 +108,7 @@ This project uses a fully automated CI/CD pipeline that deploys to Digital Ocean
 **Location**: `.do/app.yaml`
 
 **Configuration**:
-- **Auto-deploy**: Enabled via `deploy_on_push: true`
+- **Auto-deploy**: Disabled (`deploy_on_push: false`) - deployments triggered by GitHub Actions on release
 - **Source**: GitHub repo `o2alexanderfedin/hupyy-temporal`, branch `develop`
 - **Build**: Uses Dockerfile in repository root
 - **Instance**: basic-xxs (smallest instance, can be upgraded)
@@ -80,7 +127,7 @@ This project uses a fully automated CI/CD pipeline that deploys to Digital Ocean
 
 ## How It Works
 
-### Automatic Deployment Flow
+### Release-Based Deployment Flow
 
 1. **Developer pushes code** to `develop` branch
    ```bash
@@ -89,20 +136,35 @@ This project uses a fully automated CI/CD pipeline that deploys to Digital Ocean
    git push origin develop
    ```
 
-2. **GitHub Actions starts** (runs in parallel):
+2. **GitHub Actions CI runs automatically** (runs in parallel):
    - Linting and type checking (~2-3 minutes)
    - Docker build and verification (~5-7 minutes)
+   - **NOTE: No deployment happens at this stage**
 
-3. **If all checks pass**, App Platform receives webhook from GitHub
+3. **Developer creates a release** when ready to deploy
+   ```bash
+   # Create and push a release tag
+   git tag -a v2.4.0 -m "Release v2.4.0: Add new feature"
+   git push origin v2.4.0
 
-4. **App Platform deploys**:
-   - Clones latest code from GitHub
+   # Or create release via GitHub UI
+   # Visit: https://github.com/o2alexanderfedin/hupyy-temporal/releases/new
+   ```
+
+4. **GitHub Actions CD triggers** on release publication:
+   - Installs doctl (Digital Ocean CLI)
+   - Retrieves App Platform app ID
+   - Triggers deployment via Digital Ocean API
+   - Waits for deployment to complete
+
+5. **App Platform deploys**:
+   - Clones code from the release tag
    - Builds Docker image (using cached layers when possible)
    - Deploys new container
    - Performs health check
    - Routes traffic to new version (~10-15 minutes total)
 
-5. **Old version** is kept running until new version is healthy (zero-downtime deployment)
+6. **Old version** is kept running until new version is healthy (zero-downtime deployment)
 
 ### Manual Deployment
 
