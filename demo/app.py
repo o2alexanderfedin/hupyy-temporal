@@ -1523,7 +1523,8 @@ if 'last_result' in st.session_state:
                 "Download SMT-LIB code",
                 smtlib_code.encode("utf-8"),
                 file_name="constraints.smt2",
-                mime="text/plain"
+                mime="text/plain",
+                key="download_smtlib"
             )
 
         with col2:
@@ -1531,7 +1532,8 @@ if 'last_result' in st.session_state:
                 "Download raw output",
                 final_stdout.encode("utf-8"),
                 file_name="output.txt",
-                mime="text/plain"
+                mime="text/plain",
+                key="download_raw_output"
             )
 
         with col3:
@@ -1599,7 +1601,8 @@ if 'last_result' in st.session_state:
                     "📄 Download PDF Report",
                     pdf_bytes,
                     file_name=f"hupyy_report_{query_id}.pdf",
-                    mime="application/pdf"
+                    mime="application/pdf",
+                    key=f"download_pdf_{query_id}"
                 )
 
                 # Success message
