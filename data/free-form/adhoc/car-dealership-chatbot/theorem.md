@@ -29,8 +29,4 @@
 **ASSERT**: Given the chat conversation above and all constraints defined in `./rules/`, the chatbot approves a final transaction price of $19,000 or less.
 
 **Constraints Source**: All authorization limits, stacking rules, and chatbot behavioral constraints are defined in:
-- `./rules/authorization.md`
-- `./rules/chatbot-limits.md`
-- `./rules/discount-policy.md`
-- `./rules/stacking-rules.md`
-
+ ```data/free-form/adhoc/car-dealership-chatbot/rules/*.md```
