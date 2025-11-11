@@ -6,6 +6,10 @@ This directory contains experimental scripts to verify hypotheses.
 
 **Hypothesis**: When free-form natural language text is transformed to a formal version using Claude, the embeddings of both versions should remain close to each other.
 
+**Status**: ✓ Verified - See test results below
+
+**Application**: See [PIPELINE-DESIGN.md](./PIPELINE-DESIGN.md) for how to use this metric in a formalization and SMT-LIB extraction pipeline.
+
 ### Setup
 
 ```bash
@@ -20,25 +24,45 @@ pip install -r requirements.txt
 
 ### Usage
 
-Run with the default example text:
+**Single Run** (detailed output):
 
 ```bash
 python verify_embedding_distance.py
 ```
 
-Or provide your own text:
+**Multiple Runs** (statistical analysis):
+
+```bash
+python verify_embedding_distance.py --runs 20
+```
+
+**With Custom Text:**
 
 ```bash
 python verify_embedding_distance.py "your informal text here"
+python verify_embedding_distance.py --runs 20 "your informal text here"
 ```
 
 ### How It Works
 
-1. Takes informal/free-form text as input
-2. Uses `~/claude-eng --print` to transform it to a formal version
-3. Generates embeddings for both versions using sentence-transformers (local, no API needed)
-4. Calculates cosine similarity and Euclidean distance
-5. Reports whether the hypothesis is confirmed
+The script performs four transformation tests:
+
+1. **TEST A**: Slightly formal transformation (A → B)
+2. **TEST B**: Highly formal transformation (A → B2)
+3. **TEST C**: Iterative slightly formal transformation (A → B → C)
+4. **TEST D**: Information loss simulation (A → B → B_cut, with 1-2 sentences randomly removed)
+
+For each test, it:
+- Uses `~/claude-eng --print` to transform text via Claude CLI
+- Generates embeddings using sentence-transformers (local, no API needed)
+- Calculates cosine similarity between embeddings
+- Reports similarity scores, semantic drift, and information loss impact
+
+**Statistical Mode** (`--runs N`):
+- Runs the test N times (default: 20)
+- Computes mean, median, std, min, max for all metrics
+- Analyzes consistency and variance across runs
+- Shows win rates and drift patterns
 
 ### Interpretation
 
