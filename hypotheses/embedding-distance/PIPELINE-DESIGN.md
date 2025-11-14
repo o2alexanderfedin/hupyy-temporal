@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document describes a two-step pipeline for transforming informal natural language text into formal SMT-LIB symbolic representations while maintaining semantic completeness. The pipeline uses embedding distance metrics as objective verification criteria at each step.
+This document describes a three-step pipeline for transforming informal natural language text into valid, executable SMT-LIB symbolic representations while maintaining semantic completeness. The pipeline uses embedding distance metrics for semantic verification and SMT solver execution for syntactic validation.
 
 ## Architecture
 
@@ -16,12 +16,18 @@ flowchart TD
 
     E --> F[Step 2: SMT-LIB Extraction]
     F --> G[SMT-LIB Code +<br/>Annotations C]
-    G --> H{Embedding Distance<br/>B ↔ C_annotations}
+    G --> H{Embedding Distance<br/>B ↔ C}
     H -->|> 5% degradation| I[❌ Reject:<br/>Information Lost]
     H -->|≤ 5% degradation| J[✓ Complete SMT-LIB]
     I --> F
 
-    J --> K[Verified Output:<br/>SMT-LIB + Annotations]
+    J --> L[Step 3: SMT Solver Execution]
+    L --> M{Solver Execution}
+    M -->|Parse/Runtime Error| N[❌ LLM Fix Code]
+    M -->|Success| O[✓ Valid SMT-LIB]
+    N --> L
+
+    O --> P[Verified Output:<br/>Executable SMT-LIB]
 ```
 
 ## Pipeline Steps
@@ -127,6 +133,100 @@ sequenceDiagram
 - Symbolic assertions are self-documenting
 - Together they represent the complete extraction
 
+### Step 3: SMT Solver Validation
+
+**Objective:** Verify that generated SMT-LIB code is syntactically valid and executable.
+
+**Process:**
+```mermaid
+sequenceDiagram
+    participant C as SMT-LIB Code
+    participant S as SMT Solver (z3/cvc5)
+    participant LLM as Language Model
+    participant V as Valid Output
+
+    loop Retry Loop (max 3 attempts)
+        C->>S: Execute SMT-LIB code
+        S->>S: Parse and check syntax
+
+        alt Success (sat/unsat/unknown)
+            S->>V: ✓ Valid executable code
+            V->>C: Return verified SMT-LIB
+        else Parse Error
+            S->>LLM: ❌ Send error message
+            Note over LLM: Fix syntax errors<br/>preserving semantics
+            LLM->>C: Generate corrected code
+        else Runtime Error
+            S->>LLM: ❌ Send error message
+            Note over LLM: Fix logic errors<br/>preserving semantics
+            LLM->>C: Generate corrected code
+        end
+    end
+```
+
+**Verification Metric:**
+- **Success:** Solver executes without errors and returns valid response
+- **Failure:** Parse errors, runtime errors, or invalid SMT-LIB syntax
+
+**Possible Solver Responses:**
+
+1. **sat** - Formula is satisfiable
+   - Can call `get-model` to retrieve variable assignments
+   - Model format: `(define-fun x () Int 8)`
+   - Requires `(set-option :produce-models true)` in SMT-LIB code
+
+2. **unsat** - Formula is unsatisfiable
+   - Can call `get-unsat-core` for unsatisfiable core (minimal subset)
+   - Requires `(set-option :produce-unsat-cores true)` in SMT-LIB code
+
+3. **unknown** - Solver cannot determine satisfiability
+   - May be due to incomplete decision procedures
+   - May be due to timeout or resource limits
+   - Can attempt `get-value` but results are unreliable
+
+**Error Types:**
+1. **Parse Errors:** Invalid syntax, unknown commands, malformed expressions
+2. **Runtime Errors:** Type mismatches, undefined symbols, logic violations
+3. **Timeout:** Solver takes too long (configurable threshold)
+4. **Invalid Output:** Solver returns unexpected response
+
+**LLM Fix Strategy:**
+When solver execution fails:
+1. Extract error message from solver output
+2. Provide error context to LLM with original code (including all annotations)
+3. Request fix while **preserving all annotations and semantic meaning**
+4. Verify fixed code still has heavy annotations
+5. Re-verify embedding distance after fix (should still be ≤5%)
+6. Re-execute with solver
+
+**Critical Requirements for Fixes:**
+- **Preserve all natural language annotations/comments**
+- **Maintain heavy annotation density**
+- Fix only the specific syntax/logic errors identified by solver
+- Do not remove or simplify annotations
+- Entire fixed file must still be suitable for embedding comparison
+
+**Success Criteria:**
+- Solver executes without errors
+- Returns valid result (`sat`, `unsat`, or `unknown`)
+- All annotations preserved in fixed code
+- Code remains semantically equivalent to source (re-check embedding if fixed)
+
+**Output on Success:**
+When solver execution succeeds, return:
+1. **Check-sat Result:** `sat`, `unsat`, or `unknown`
+2. **Model (if sat):** Variable assignments from `get-model` (optional)
+3. **Unsat Core (if unsat):** Minimal unsatisfiable subset from `get-unsat-core` (optional)
+4. **Annotated SMT-LIB Code:** The complete annotated SMT-LIB file that was successfully executed
+
+This allows downstream consumers to:
+- Use the sat/unsat/unknown result for decision-making
+- Inspect the model to understand satisfying assignments
+- Analyze unsat core to identify conflicting constraints
+- Reference the annotated code for understanding and documentation
+- Re-execute the code with different solvers or parameters
+- Trace back from result to original natural language source
+
 ## Complete Flow Diagram
 
 ```mermaid
@@ -149,13 +249,23 @@ flowchart LR
         E -->|No| D
     end
 
+    subgraph "Step 3: Validation Loop"
+        G[Execute with<br/>SMT Solver]
+        H{Solver Success?}
+        I[LLM Fix Errors]
+        G --> H
+        H -->|Error| I
+        I --> G
+    end
+
     subgraph Output
-        F[Verified SMT-LIB<br/>+ Annotations]
+        F[Valid Executable<br/>SMT-LIB]
     end
 
     A --> B
     C -->|Yes| D
-    E -->|Yes| F
+    E -->|Yes| G
+    H -->|Yes| F
 ```
 
 ## Metrics and Thresholds
@@ -227,7 +337,121 @@ for attempt in retries:
 - **Pros:** Fast, local, no API needed, consistent results
 - **Cons:** Fixed model version required for reproducible thresholds
 
-### 3. Retry Strategy
+### 3. SMT Solver Configuration
+
+**Recommended Solvers:**
+- **Z3:** Microsoft's SMT solver (most commonly used, excellent documentation)
+- **CVC5:** Alternative solver with good performance
+- **Support for SMT-LIB v2.6+**
+
+**Solver Execution:**
+```python
+import subprocess
+from dataclasses import dataclass
+from typing import Optional
+
+@dataclass
+class SolverResult:
+    """Result from SMT solver execution."""
+    success: bool
+    check_sat_result: str  # "sat", "unsat", "unknown", or error message
+    model: Optional[str] = None  # Model output from get-model (if sat)
+    unsat_core: Optional[str] = None  # Unsat core (if unsat and requested)
+    raw_output: str = ""  # Complete solver output
+
+def execute_smt_solver(
+    smt_lib_code: str,
+    solver="z3",
+    timeout_seconds=30,
+    get_model=True,
+    get_unsat_core=False
+) -> SolverResult:
+    """
+    Execute SMT-LIB code with solver and optionally retrieve model/unsat-core.
+
+    Args:
+        smt_lib_code: Complete SMT-LIB file content
+        solver: Solver to use ("z3" or "cvc5")
+        timeout_seconds: Max execution time
+        get_model: Whether to call (get-model) if sat
+        get_unsat_core: Whether to call (get-unsat-core) if unsat
+
+    Returns:
+        SolverResult with check-sat result and optional model/core
+    """
+    try:
+        # Ensure options are set for model/core generation
+        code_with_options = smt_lib_code
+        if get_model and "(set-option :produce-models true)" not in smt_lib_code:
+            code_with_options = "(set-option :produce-models true)\n" + code_with_options
+        if get_unsat_core and "(set-option :produce-unsat-cores true)" not in smt_lib_code:
+            code_with_options = "(set-option :produce-unsat-cores true)\n" + code_with_options
+
+        result = subprocess.run(
+            [solver, "-in"],
+            input=code_with_options,
+            text=True,
+            capture_output=True,
+            timeout=timeout_seconds,
+            check=False
+        )
+
+        # Check for errors in stderr
+        if result.returncode != 0 or ("error" in result.stderr.lower() and result.stderr.strip()):
+            return SolverResult(
+                success=False,
+                check_sat_result=result.stderr or result.stdout,
+                raw_output=result.stdout
+            )
+
+        output = result.stdout.strip()
+        lines = output.split('\n')
+
+        # First line should be sat/unsat/unknown
+        if not lines or lines[0] not in ["sat", "unsat", "unknown"]:
+            return SolverResult(
+                success=False,
+                check_sat_result=f"Unexpected solver output: {output}",
+                raw_output=output
+            )
+
+        check_sat_result = lines[0]
+        model = None
+        unsat_core = None
+
+        # Parse model if sat and get-model was called
+        if check_sat_result == "sat" and get_model and "(get-model)" in smt_lib_code:
+            # Model starts after "sat" line
+            model = '\n'.join(lines[1:]) if len(lines) > 1 else None
+
+        # Parse unsat-core if unsat and get-unsat-core was called
+        if check_sat_result == "unsat" and get_unsat_core and "(get-unsat-core)" in smt_lib_code:
+            # Unsat core starts after "unsat" line
+            unsat_core = '\n'.join(lines[1:]) if len(lines) > 1 else None
+
+        return SolverResult(
+            success=True,
+            check_sat_result=check_sat_result,
+            model=model,
+            unsat_core=unsat_core,
+            raw_output=output
+        )
+
+    except subprocess.TimeoutExpired:
+        return SolverResult(
+            success=False,
+            check_sat_result=f"Solver timeout after {timeout_seconds} seconds",
+            raw_output=""
+        )
+    except Exception as e:
+        return SolverResult(
+            success=False,
+            check_sat_result=f"Solver execution error: {str(e)}",
+            raw_output=""
+        )
+```
+
+### 4. Retry Strategy
 
 **Step 1 (Formalization):**
 ```python
@@ -262,6 +486,49 @@ for attempt in range(max_retries):
     if degradation <= 0.05:
         return smt_lib_code
 raise ExtractionIncomplete("Missing information in extraction")
+```
+
+**Step 3 (Solver Validation):**
+```python
+max_retries = 3
+for attempt in range(max_retries):
+    result = execute_smt_solver(
+        smt_lib_code,
+        solver="z3",
+        timeout_seconds=30,
+        get_model=True,
+        get_unsat_core=False  # Optional: enable if needed
+    )
+
+    if result.success:
+        # Return solver result with model/core and validated SMT-LIB code
+        return {
+            "check_sat_result": result.check_sat_result,  # "sat", "unsat", "unknown"
+            "model": result.model,  # Variable assignments (if sat)
+            "unsat_core": result.unsat_core,  # Conflicting constraints (if unsat)
+            "smt_lib_code": smt_lib_code,  # Complete annotated code
+            "attempts": attempt + 1
+        }
+
+    # Solver failed - use LLM to fix errors
+    fixed_code = llm.fix_smt_errors(
+        smt_lib_code=smt_lib_code,
+        error_message=result.check_sat_result,  # Error message from solver
+        instruction="Fix the syntax/logic errors while preserving ALL annotations and semantic meaning"
+    )
+
+    # Verify annotations still present and embedding distance maintained
+    if not has_heavy_annotations(fixed_code):
+        raise ValidationError("LLM removed annotations during fix")
+
+    # Optional: Re-verify embedding distance if significant changes made
+    embedding_fixed = embed(fixed_code)
+    if 1.0 - cosine_similarity(embedding_formal, embedding_fixed) > 0.05:
+        raise ValidationError("Fix changed semantic meaning beyond threshold")
+
+    smt_lib_code = fixed_code  # Use fixed code for next iteration
+
+raise SolverValidationFailure("Could not produce valid SMT-LIB after retries")
 ```
 
 ### 4. SMT-LIB Embedding Preparation
@@ -302,6 +569,11 @@ class PipelineMetrics:
     # Step 2
     extraction_attempts: int
     final_extraction_degradation: float
+
+    # Step 3
+    solver_validation_attempts: int
+    solver_execution_time_seconds: float
+    solver_result: str  # "sat", "unsat", "unknown"
 
     # Overall
     total_time_seconds: float
@@ -352,10 +624,31 @@ class PipelineMetrics:
 - Missing symbolic assertions compensated by verbose comments
 
 **Mitigation:**
-1. Validate SMT-LIB can execute/parse correctly
+1. Validate SMT-LIB can execute/parse correctly (Step 3 catches this)
 2. Cross-check assertion count vs source text complexity
 3. Verify each assertion has corresponding annotation
 4. Human spot-check on sample extractions
+
+### Failure Mode 4: SMT Solver Execution Errors
+
+**Detection:** `execute_smt_solver()` returns `success=False`
+
+**Causes:**
+- **Syntax Errors:** Invalid SMT-LIB syntax, malformed expressions, typos
+- **Type Errors:** Incorrect types in assertions (e.g., comparing Real to Bool)
+- **Undefined Symbols:** Variables used but not declared
+- **Logic Violations:** Constraints that violate the specified logic
+- **Timeout:** Solver cannot complete within timeout period
+
+**Mitigation:**
+1. LLM fixes errors while preserving annotations
+2. Verify annotations not removed during fix
+3. Re-check embedding distance after fix (≤5%)
+4. Limit retry attempts (max 3)
+5. Manual review if all retries fail
+
+**Special Consideration:**
+When LLM fixes errors, it may be tempted to simplify code by removing "unnecessary" annotations. Explicitly instruct LLM to preserve ALL annotations and re-verify their presence after fix.
 
 ## Quality Assurance
 
@@ -365,11 +658,13 @@ class PipelineMetrics:
 flowchart TD
     A[Annotated SMT-LIB] --> B{Embedding Check<br/>≤ 5% degradation?}
     B -->|No| C[❌ Fail: Incomplete]
-    B -->|Yes| D{SMT-LIB Syntax<br/>Valid?}
-    D -->|No| E[❌ Fail: Invalid Code]
+    B -->|Yes| D{SMT Solver<br/>Executes?}
+    D -->|No| E[❌ Fail: Solver Error]
     D -->|Yes| F{Heavy Annotations<br/>Present?}
     F -->|No| G[❌ Fail: Missing Comments]
-    F -->|Yes| H[✓ Pass All Checks]
+    F -->|Yes| H{Solver Returns<br/>sat/unsat/unknown?}
+    H -->|No| I[❌ Fail: Invalid Result]
+    H -->|Yes| J[✓ Pass All Checks]
 ```
 
 ### Manual Review Triggers
@@ -377,9 +672,12 @@ flowchart TD
 Require human review when:
 1. Formalization required > 3 attempts
 2. Extraction required > 5 attempts
-3. Final degradation > 4% (close to threshold)
-4. Source text > 2000 words
-5. SMT-LIB > 100 assertions
+3. Solver validation required > 2 attempts
+4. Final degradation > 4% (close to threshold)
+5. Source text > 2000 words
+6. SMT-LIB > 100 assertions
+7. Solver timeout occurred
+8. Solver returned unexpected output (not sat/unsat/unknown)
 
 ## Integration Points
 
@@ -427,6 +725,13 @@ class VerifiedOutput:
     # Step 2 output
     smt_lib_code: str  # Entire SMT-LIB file with heavy annotations
     extraction_degradation: float
+
+    # Step 3 output
+    check_sat_result: str  # "sat", "unsat", or "unknown"
+    model: Optional[str]  # Variable assignments (if sat and requested)
+    unsat_core: Optional[str]  # Conflicting constraints (if unsat and requested)
+    solver_success: bool  # Whether solver executed without errors
+    solver_attempts: int  # Number of fix attempts needed
 
     # Metrics
     metrics: PipelineMetrics
